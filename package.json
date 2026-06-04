@@ -35,7 +35,9 @@
     "typecheck": "npm run typecheck:app && npm run typecheck:server && npm run typecheck:electron",
     "typecheck:app": "tsc -p tsconfig.app.json --noEmit",
     "typecheck:electron": "tsc -p tsconfig.electron.json --noEmit",
-    "typecheck:server": "tsc -p tsconfig.server.json --noEmit"
+    "typecheck:server": "tsc -p tsconfig.server.json --noEmit",
+    "verify:desktop-first-screen": "node scripts/smoke-desktop-first-screen.mjs",
+    "verify:desktop-package": "node scripts/verify-desktop-package.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.44.0",
