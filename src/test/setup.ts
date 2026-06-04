@@ -1,36 +1,38 @@
 import "@testing-library/jest-dom";
 
-Object.defineProperty(window, "matchMedia", {
-  writable: true,
-  value: (query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => {},
-  }),
-});
+if (typeof window !== "undefined") {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => {},
+    }),
+  });
 
-class ResizeObserverMock {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
+  class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
 
-Object.defineProperty(window, "ResizeObserver", {
-  writable: true,
-  value: ResizeObserverMock,
-});
+  Object.defineProperty(window, "ResizeObserver", {
+    writable: true,
+    value: ResizeObserverMock,
+  });
 
-if (!HTMLElement.prototype.getClientRects) {
-  HTMLElement.prototype.getClientRects = function () {
-    return {
-      item: () => null,
-      length: 0,
-      [Symbol.iterator]: function* iterator() {},
-    } as DOMRectList;
-  };
+  if (!HTMLElement.prototype.getClientRects) {
+    HTMLElement.prototype.getClientRects = function () {
+      return {
+        item: () => null,
+        length: 0,
+        [Symbol.iterator]: function* iterator() {},
+      } as DOMRectList;
+    };
+  }
 }

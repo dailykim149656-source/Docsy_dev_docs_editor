@@ -54,7 +54,7 @@ export const buildInternalAiHealthPayload = ({
   runtimeRevision: string | null;
   runtimeService: string | null;
   workspaceAuthSuccessCriterion: string;
-  workspaceRepositoryBackend: "file" | "firestore";
+  workspaceRepositoryBackend: "file";
   workspaceSessionCookieAcceptedNames: readonly string[];
   workspaceSessionCookieSecureName: string;
   workspaceSessionCookieSecureSameSite: "Lax" | "None" | "Strict";

@@ -51,7 +51,7 @@ describe("aiDiagnostics", () => {
       runtimeRevision: "docsy-00129-gsw",
       runtimeService: "docsy",
       workspaceAuthSuccessCriterion: "/api/auth/session returns connected=true",
-      workspaceRepositoryBackend: "firestore",
+      workspaceRepositoryBackend: "file",
       workspaceSessionCookieAcceptedNames: ["__session", "__Host-docsy-workspace-session", "docsy_workspace_session"],
       workspaceSessionCookieSecureName: "__session",
       workspaceSessionCookieSecureSameSite: "None",
@@ -66,7 +66,7 @@ describe("aiDiagnostics", () => {
       runtimeRevision: "docsy-00129-gsw",
       runtimeService: "docsy",
       workspaceAuthSuccessCriterion: "/api/auth/session returns connected=true",
-      workspaceRepositoryBackend: "firestore",
+      workspaceRepositoryBackend: "file",
       workspaceSessionCookieSecureName: "__session",
       workspaceSessionCookieSecureSameSite: "None",
     });

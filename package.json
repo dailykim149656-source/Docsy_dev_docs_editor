@@ -20,8 +20,8 @@
     "capture:marketing": "node scripts/capture-marketing-surfaces.mjs",
     "check:public-deploy": "node scripts/validate-public-deploy-config.mjs",
     "desktop:dev": "node scripts/electron-dev.mjs",
-    "desktop:dist": "npm run build && npm run electron:build && electron-builder --publish never",
-    "desktop:dist:dir": "npm run build && npm run electron:build && electron-builder --dir --publish never",
+    "desktop:dist": "npm run build && npm run electron:build && electron-builder --publish never --config.win.signAndEditExecutable=false",
+    "desktop:dist:dir": "npm run build && npm run electron:build && electron-builder --dir --publish never --config.win.signAndEditExecutable=false",
     "electron:build": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --target=node22 --outdir=electron-dist --out-extension:.js=.cjs --external:electron",
     "electron:start": "npm run electron:build && electron .",
     "lint": "eslint .",
@@ -38,9 +38,6 @@
     "typecheck:server": "tsc -p tsconfig.server.json --noEmit"
   },
   "dependencies": {
-    "@google-cloud/firestore": "^8.3.0",
-    "@google-cloud/storage": "^7.17.2",
-    "@google-cloud/tasks": "^5.5.0",
     "@google/genai": "^1.44.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",

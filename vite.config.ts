@@ -73,6 +73,7 @@ export default defineConfig(({ mode }) => {
   const webGuideContentStub = path.resolve(__dirname, "./src/content/webGuideContentStub.ts");
 
   return ({
+  base: mode === "web" ? "/" : "./",
   server: {
     host: "::",
     port: 8080,

@@ -9,11 +9,18 @@ const DEFAULTS = {
   texServiceName: "docsy-tex",
   texWorkerServiceName: "docsy-tex-worker",
   vertexLocation: "asia-northeast3",
-  workspaceRepositoryBackend: "firestore",
+  workspaceRepositoryBackend: "file",
   workspaceScopeProfile: "restricted",
 };
 
 const shellEscape = (value) => `'${String(value ?? "").replace(/'/g, `'\\''`)}'`;
+
+const normalizeWorkspaceRepositoryBackend = (value) => {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "file" || normalized === "local"
+    ? "file"
+    : DEFAULTS.workspaceRepositoryBackend;
+};
 
 const readArgs = (argv) => {
   const parsed = {
@@ -75,7 +82,7 @@ const resolveDeployEnv = ({ aiUrl, target }) => {
   const workspaceScopeProfile = configuredWorkspaceScopeProfile || DEFAULTS.workspaceScopeProfile;
   const workspaceScopes = configuredWorkspaceScopes;
   const aiMaxRequestBytes = configuredAiMaxRequestBytes || DEFAULTS.aiMaxRequestBytes;
-  const workspaceRepositoryBackend = configuredWorkspaceRepositoryBackend || DEFAULTS.workspaceRepositoryBackend;
+  const workspaceRepositoryBackend = normalizeWorkspaceRepositoryBackend(configuredWorkspaceRepositoryBackend);
   let aiApiBaseUrl = configuredApiBaseUrl || frontendOrigin;
 
   if (!aiApiBaseUrl && target === "web" && aiUrl) {

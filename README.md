@@ -55,7 +55,7 @@ Current submission priorities:
 
 ## Architecture Diagram
 
-Docsy's deployed architecture uses a React + Vite frontend served from Firebase Hosting and a separate Node.js AI backend deployed on Cloud Run. The backend accesses Gemini on Vertex AI through the Google GenAI SDK, stores shared Google Workspace session and state data in Firestore, and brokers Google Docs/Drive plus LaTeX service requests without exposing credentials to the browser.
+Docsy's deployed architecture uses a React + Vite frontend served from Firebase Hosting and a separate Node.js AI backend deployed on Cloud Run. The backend accesses Gemini on Vertex AI through the Google GenAI SDK, stores Google Workspace session and state data in the local file-backed repository, and brokers Google Docs/Drive plus LaTeX service requests without exposing credentials to the browser.
 
 For hackathon submission, export the diagram below as a PNG and upload it via `File Upload`.
 
@@ -70,8 +70,8 @@ flowchart LR
   GEM -->|"structured JSON action<br/>patch proposal"| API
   API -->|"assistant response<br/>patch data"| FE
 
-  API -->|"session + workspace state"| DB["Firestore"]
-  DB -->|"shared state lookup"| API
+  API -->|"session + workspace state"| DB["Local state file"]
+  DB -->|"local state lookup"| API
 
   API -->|"OAuth + Docs/Drive operations"| GW["Google OAuth + Google Docs/Drive"]
   GW -->|"auth callback + document data"| API
@@ -201,7 +201,7 @@ Google OAuth production guard:
 
 - set `GOOGLE_OAUTH_PUBLISHING_STATUS=testing|production`
 - set `GOOGLE_WORKSPACE_SCOPE_PROFILE=restricted|reduced`
-- deployed Google Workspace state now defaults to Firestore on Cloud Run so OAuth/session state is shared across instances
+- deployed Google Workspace state now uses the local file-backed repository; set `WORKSPACE_STATE_PATH` or `WORKSPACE_DB_PATH` to a writable persistent local path when state must survive restarts
 - Firebase Hosting rewrites only forward the `__session` cookie to Cloud Run, so hosted workspace auth must use that cookie name in deployed HTTPS environments
 - the current deployed auth contract is documented in [docs/current-workspace-auth-contract-2026-03-16.md](docs/current-workspace-auth-contract-2026-03-16.md)
 - run `npm run check:public-deploy` before public deploys to validate custom-domain and OAuth settings

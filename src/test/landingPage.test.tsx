@@ -70,8 +70,8 @@ describe("Landing page", () => {
     expect(screen.getByText("Capture the live viewport")).toBeInTheDocument();
     expect(screen.getByText("Gemini chooses one UI action")).toBeInTheDocument();
     expect(screen.getByText("Docsy executes and hands off to review")).toBeInTheDocument();
-    expect(screen.getByText(/let Docsy observe the live UI/i)).toBeInTheDocument();
-    expect(screen.getByText(/Use the guide to learn the Visual Navigator flow/i)).toBeInTheDocument();
+    expect(screen.getByText(/Docsy looks at the real visible UI/i)).toBeInTheDocument();
+    expect(screen.getByText(/Open the guide to learn where the Visual Navigator lives/i)).toBeInTheDocument();
     expect(screen.getByText("Edit now")).toBeInTheDocument();
     expect(screen.getByText("Import / export")).toBeInTheDocument();
     expect(screen.getByText(".docsy")).toBeInTheDocument();
