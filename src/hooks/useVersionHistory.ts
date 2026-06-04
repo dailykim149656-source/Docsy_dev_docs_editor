@@ -11,7 +11,6 @@ import type {
 
 interface UseVersionHistoryOptions {
   activeDoc: DocumentData;
-  aiSummaryAvailable?: boolean;
   bumpEditorKey: () => void;
   enabled?: boolean;
   updateActiveDoc: (patch: Partial<DocumentData>) => void;
@@ -45,12 +44,11 @@ const createSnapshotContentHash = (document: DocumentData) =>
 
 export const useVersionHistory = ({
   activeDoc,
-  aiSummaryAvailable = false,
   bumpEditorKey,
   enabled = true,
   updateActiveDoc,
 }: UseVersionHistoryOptions) => {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const [versionSnapshots, setVersionSnapshots] = useState<DocumentVersionSnapshot[]>([]);
   const [versionHistoryReady, setVersionHistoryReady] = useState(false);
   const [versionHistorySyncing, setVersionHistorySyncing] = useState(false);
@@ -137,51 +135,8 @@ export const useVersionHistory = ({
       return;
     }
 
-    const previousAutoSaveSnapshot = versionSnapshots.find((entry) => entry.trigger === "autosave") || null;
-    const snapshot = await createVersionSnapshot(document, "autosave");
-
-    void (async () => {
-      try {
-        const [
-          { buildAutosaveDiffSummaryRequest },
-          { summarizeAutosaveDiff },
-          { upsertDocumentVersionSnapshot },
-        ] = await Promise.all([
-          import("@/lib/history/autosaveDiffSummary"),
-          import("@/lib/ai/autosaveSummaryClient"),
-          loadVersionHistoryStore(),
-        ]);
-        const request = buildAutosaveDiffSummaryRequest({
-          currentSnapshot: snapshot,
-          locale,
-          previousSnapshot: previousAutoSaveSnapshot,
-        });
-
-        if (!request) {
-          return;
-        }
-
-        // Health is only a hint; still attempt when a real diff exists so stale
-        // or cross-origin health signals do not suppress autosave summaries.
-        const result = await summarizeAutosaveDiff(request);
-        const summarizedSnapshot = {
-          ...snapshot,
-          metadata: {
-            ...(snapshot.metadata || {}),
-            summary: result.summary,
-            summaryGeneratedAt: Date.now(),
-          },
-        } satisfies DocumentVersionSnapshot;
-        const nextSnapshots = await upsertDocumentVersionSnapshot(summarizedSnapshot, MAX_VERSION_SNAPSHOTS);
-
-        if (document.id === activeDocumentIdRef.current) {
-          setVersionSnapshots(nextSnapshots);
-        }
-      } catch {
-        // Leave the fallback summary in place when AI summary generation fails.
-      }
-    })();
-  }, [aiSummaryAvailable, createVersionSnapshot, enabled, locale, versionSnapshots]);
+    await createVersionSnapshot(document, "autosave");
+  }, [createVersionSnapshot, enabled]);
 
   const restoreVersionSnapshot = useCallback(async (snapshotId: string) => {
     const snapshot = versionSnapshots.find((entry) => entry.snapshotId === snapshotId);

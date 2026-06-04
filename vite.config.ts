@@ -69,6 +69,9 @@ const bundleReportPlugin = () => ({
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
+  const webPageStub = path.resolve(__dirname, "./src/pages/WebRedirect.tsx");
+  const webGuideContentStub = path.resolve(__dirname, "./src/content/webGuideContentStub.ts");
+
   return ({
   server: {
     host: "::",
@@ -87,6 +90,12 @@ export default defineConfig(({ mode }) => {
   plugins: [react(), bundleReportPlugin(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
+      ...(mode === "web" ? {
+        "@/content/guideContent": webGuideContentStub,
+        "@/pages/Guide": webPageStub,
+        "@/pages/Index": webPageStub,
+        "@/pages/WorkspaceGraph": webPageStub,
+      } : {}),
       "@": path.resolve(__dirname, "./src"),
     },
   },
@@ -101,19 +110,6 @@ export default defineConfig(({ mode }) => {
       },
       output: {
         manualChunks(id) {
-          if (matchesSource(id, [
-            "src/lib/ai/autosaveSummaryClient.ts",
-          ])) {
-            return "ai-history";
-          }
-
-          if (matchesSource(id, [
-            "src/lib/ai/httpClient.ts",
-            "src/lib/ai/texClient.ts",
-          ])) {
-            return "ai-shared";
-          }
-
           if (!id.includes("node_modules")) {
             return;
           }

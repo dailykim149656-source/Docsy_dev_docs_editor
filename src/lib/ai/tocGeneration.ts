@@ -134,7 +134,7 @@ const createHeadingNode = (
 });
 
 const buildTopLevelCandidates = (sourceAst: DocumentAst): TocMatchCandidate[] =>
-  sourceAst.blocks.flatMap((block, index) => {
+  sourceAst.blocks.flatMap<TocMatchCandidate>((block, index) => {
     if (block.type === "heading") {
       return [{
         block,

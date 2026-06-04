@@ -11,6 +11,8 @@ lerna-debug.log*
 node_modules
 dist
 server-dist
+electron-dist
+/release
 dist-ssr
 .vite
 coverage
@@ -43,6 +45,7 @@ Thumbs.db
 
 # Local/temporary files
 .data/
+.playwright-cli/
 *.local
 *.tmp
 *.temp
@@ -54,6 +57,8 @@ temp-*.ts
 temp-*.tsx
 test-results
 output/gcp-monitoring/
+output/playwright/
 output/readme-bundles/
+output/web-profile-test/
 playwright-report
 .playwright-*.png

@@ -13,7 +13,7 @@ interface DocumentImpactPanelProps {
     sourceDocumentId: string;
     targetDocumentId: string;
   }) => void;
-  onSuggestUpdates: (documentId: string) => void;
+  onSuggestUpdates?: (documentId: string) => void;
   suggestableDocumentIds: string[];
 }
 
@@ -98,7 +98,7 @@ const DocumentImpactPanel = ({
           ) : (
             <div className="space-y-2">
               {impact.relatedDocuments.slice(0, 5).map((document, index) => {
-                const canSuggestUpdates = suggestableDocumentIds.includes(document.documentId);
+                const canSuggestUpdates = Boolean(onSuggestUpdates) && suggestableDocumentIds.includes(document.documentId);
                 const emphasisClass = index === 0
                   ? "border-primary/40 bg-primary/5"
                   : index < 3
@@ -156,16 +156,18 @@ const DocumentImpactPanel = ({
                           <ArrowUpRight className="mr-1 h-3 w-3" />
                           {t("knowledge.open")}
                         </Button>
-                        <Button
-                          className="h-6 px-2 text-[10px]"
-                          disabled={!canSuggestUpdates}
-                          onClick={() => onSuggestUpdates(document.documentId)}
-                          size="sm"
-                          variant="outline"
-                        >
-                          <GitCompareArrows className="mr-1 h-3 w-3" />
-                          {t("knowledge.suggest")}
-                        </Button>
+                        {onSuggestUpdates && (
+                          <Button
+                            className="h-6 px-2 text-[10px]"
+                            disabled={!canSuggestUpdates}
+                            onClick={() => onSuggestUpdates(document.documentId)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            <GitCompareArrows className="mr-1 h-3 w-3" />
+                            {t("knowledge.suggest")}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>

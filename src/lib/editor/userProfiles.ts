@@ -54,7 +54,10 @@ export const getUserProfileCapabilities = (profile: EditorUserProfile): EditorUi
   };
 };
 
-export const getDeploymentUiCapabilities = (_profile: AppProfile): EditorUiCapabilities => FULL_CAPABILITIES;
+export const getDeploymentUiCapabilities = (_profile: AppProfile): EditorUiCapabilities => ({
+  ...FULL_CAPABILITIES,
+  canAccessAiAssistant: false,
+});
 
 export const intersectEditorUiCapabilities = (
   left: EditorUiCapabilities,

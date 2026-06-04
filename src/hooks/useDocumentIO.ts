@@ -20,7 +20,6 @@ import {
   resolveImportedDocumentOptions,
 } from "@/lib/io/documentIoShared";
 import { importLatexToDocsy } from "@/lib/latex/importLatexToDocsy";
-import { createDocumentShare, getShareCreateErrorCode } from "@/lib/share/shareClient";
 import type { DocumentPatchSet } from "@/types/documentPatch";
 import type { ShareLinkInfo } from "@/types/share";
 import type { SourceFileReference } from "@/types/documentAst";
@@ -66,7 +65,6 @@ export type ImportValidationResult = ImportValidationSuccess | ImportValidationF
 export type ClipboardExportFormat = "html" | "json" | "markdown" | "yaml";
 
 const loadDocsyFileFormat = () => import("@/lib/docsy/fileFormat");
-const loadDocShare = () => import("@/lib/share/docShare");
 const loadPatchSetGuard = () => import("@/lib/patches/isDocumentPatchSet");
 const loadStructuredPatchSet = () => import("@/lib/patches/applyStructuredPatchSet");
 
@@ -276,27 +274,12 @@ export const buildClipboardExportContent = async ({
 };
 
 export const buildShareLinkInfo = async (
-  document: DocumentData,
+  _document: DocumentData,
 ): Promise<ShareLinkInfo> => {
-  try {
-    const { buildShareableDocsyPayload } = await loadDocShare();
-    const response = await createDocumentShare({
-      payload: buildShareableDocsyPayload(document),
-    });
-
-    return {
-      available: true,
-      errorCode: null,
-      expiresAt: response.expiresAt,
-      link: response.link,
-      shareId: response.shareId,
-    };
-  } catch (error) {
-    return {
-      ...EMPTY_SHARE_LINK_INFO,
-      errorCode: getShareCreateErrorCode(error),
-    };
-  }
+  return {
+    ...EMPTY_SHARE_LINK_INFO,
+    errorCode: "server_unavailable",
+  };
 };
 
 export const useDocumentIO = ({

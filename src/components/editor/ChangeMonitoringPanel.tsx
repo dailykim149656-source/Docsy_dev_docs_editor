@@ -18,7 +18,7 @@ interface ChangeMonitoringPanelProps {
     targetDocumentId: string;
   }) => void;
   onRescan: () => void;
-  onSuggestUpdates: (sourceDocumentId: string, targetDocumentId: string) => void;
+  onSuggestUpdates?: (sourceDocumentId: string, targetDocumentId: string) => void;
 }
 
 const formatTimestamp = (timestamp: number | null) =>
@@ -114,20 +114,22 @@ const ChangeMonitoringPanel = ({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            className="h-7 gap-1 text-xs"
-            disabled={impactQueue.length === 0 || isRescanning}
-            onClick={() => {
-              impactQueue.forEach((item) => {
-                onSuggestUpdates(item.changedDocumentId, item.impactedDocumentId);
-              });
-            }}
-            size="sm"
-            variant="outline"
-          >
-            <ScanSearch className="h-3 w-3" />
-            {t("knowledge.changeMonitoringQueueAll")}
-          </Button>
+          {onSuggestUpdates && (
+            <Button
+              className="h-7 gap-1 text-xs"
+              disabled={impactQueue.length === 0 || isRescanning}
+              onClick={() => {
+                impactQueue.forEach((item) => {
+                  onSuggestUpdates(item.changedDocumentId, item.impactedDocumentId);
+                });
+              }}
+              size="sm"
+              variant="outline"
+            >
+              <ScanSearch className="h-3 w-3" />
+              {t("knowledge.changeMonitoringQueueAll")}
+            </Button>
+          )}
           <Button className="h-7 gap-1 text-xs" onClick={onRescan} size="sm" variant="outline">
             <RefreshCcw className={`h-3 w-3 ${isRescanning ? "animate-spin" : ""}`} />
             {isRescanning ? t("knowledge.changeMonitoringScanning") : t("knowledge.changeMonitoringRescan")}
@@ -260,15 +262,17 @@ const ChangeMonitoringPanel = ({
                       {t("knowledge.graphExplore")}
                     </Button>
                   )}
-                  <Button
-                    className="ml-auto h-7 gap-1 text-xs"
-                    onClick={() => onSuggestUpdates(item.changedDocumentId, item.impactedDocumentId)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    <ScanSearch className="h-3 w-3" />
-                    {t("knowledge.changeMonitoringSuggestUpdate")}
-                  </Button>
+                  {onSuggestUpdates && (
+                    <Button
+                      className="ml-auto h-7 gap-1 text-xs"
+                      onClick={() => onSuggestUpdates(item.changedDocumentId, item.impactedDocumentId)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <ScanSearch className="h-3 w-3" />
+                      {t("knowledge.changeMonitoringSuggestUpdate")}
+                    </Button>
+                  )}
                 </div>
               </div>
             );

@@ -62,12 +62,12 @@ export interface KnowledgeSidebarPanelsProps {
   onOpenSuggestionQueueItem: (id: string) => void;
   onRetrySuggestionQueueItem: (id: string) => void;
   onSelectDoc: (id: string) => void;
-  onSuggestKnowledgeImpactUpdate: (
+  onSuggestKnowledgeImpactUpdate?: (
     sourceDocumentId: string,
     targetDocumentId: string,
     context?: KnowledgeSuggestionContext,
   ) => void;
-  onSuggestKnowledgeUpdates: (documentId: string, context?: KnowledgeSuggestionContext) => void;
+  onSuggestKnowledgeUpdates?: (documentId: string, context?: KnowledgeSuggestionContext) => void;
   workspaceChangedSources?: import("@/lib/knowledge/sourceFingerprint").SourceChangeRecord[];
   workspaceLastRescannedAt?: number | null;
   workspaceRescanning?: boolean;

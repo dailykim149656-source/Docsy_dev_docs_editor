@@ -65,52 +65,14 @@ export const createVersionHistorySnapshot = async (
 
 export const captureAutoSaveVersionSnapshot = async (
   document: DocumentData,
-  locale: "en" | "ko",
+  _locale: "en" | "ko",
 ) => {
   if (!initializedDocumentIds.has(document.id)) {
     initializedDocumentIds.add(document.id);
     return null;
   }
 
-  const [
-    { listDocumentVersionSnapshots, upsertDocumentVersionSnapshot },
-    { buildAutosaveDiffSummaryRequest },
-    { summarizeAutosaveDiff },
-  ] = await Promise.all([
-    loadVersionHistoryStore(),
-    import("@/lib/history/autosaveDiffSummary"),
-    import("@/lib/ai/autosaveSummaryClient"),
-  ]);
-  const previousAutoSaveSnapshot = (await listDocumentVersionSnapshots(document.id))
-    .find((entry) => entry.trigger === "autosave") || null;
-  const snapshot = await createVersionHistorySnapshot(document, "autosave");
-  const request = buildAutosaveDiffSummaryRequest({
-    currentSnapshot: snapshot,
-    locale,
-    previousSnapshot: previousAutoSaveSnapshot,
-  });
-
-  if (!request) {
-    return snapshot;
-  }
-
-  void (async () => {
-    try {
-      const result = await summarizeAutosaveDiff(request);
-      await upsertDocumentVersionSnapshot({
-        ...snapshot,
-        metadata: {
-          ...(snapshot.metadata || {}),
-          summary: result.summary,
-          summaryGeneratedAt: Date.now(),
-        },
-      }, MAX_VERSION_SNAPSHOTS);
-    } catch {
-      // Leave the stored autosave snapshot without an AI summary.
-    }
-  })();
-
-  return snapshot;
+  return createVersionHistorySnapshot(document, "autosave");
 };
 
 export const removeDocumentVersionHistory = async (documentId: string) => {

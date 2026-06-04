@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 const AUTOSAVE_KEY = "docsy-autosave-v2";
 const DOCUMENT_TOOLS_KEY = "docsy:web:document-tools-enabled";
 const UI_LANGUAGE_KEY = "docsy-ui-language";
+const USER_PROFILE_KEY = "docsy:web:user-profile";
 
 const createMobileEditorState = () => {
   const now = Date.now();
@@ -33,10 +34,11 @@ test("mobile toolbar preserves selection for bold and exposes the mobile format 
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.evaluate(({ autosaveKey, autosaveState, documentToolsKey, uiLanguageKey }) => {
+  await page.evaluate(({ autosaveKey, autosaveState, documentToolsKey, uiLanguageKey, userProfileKey }) => {
     localStorage.clear();
     sessionStorage.clear();
     localStorage.setItem(uiLanguageKey, "en");
+    localStorage.setItem(userProfileKey, "advanced");
     localStorage.setItem(documentToolsKey, "true");
     localStorage.setItem(autosaveKey, JSON.stringify(autosaveState));
   }, {
@@ -44,6 +46,7 @@ test("mobile toolbar preserves selection for bold and exposes the mobile format 
     autosaveState,
     documentToolsKey: DOCUMENT_TOOLS_KEY,
     uiLanguageKey: UI_LANGUAGE_KEY,
+    userProfileKey: USER_PROFILE_KEY,
   });
   await page.goto("/editor?e2e=1", { waitUntil: "domcontentloaded" });
 
@@ -81,7 +84,7 @@ test("mobile toolbar preserves selection for bold and exposes the mobile format 
     });
   }).toBeTruthy();
 
-  await page.getByRole("button", { name: "More" }).click();
+  await page.getByTestId("toolbar-mobile-more").getByRole("button", { name: "More" }).click();
   const mobileSheet = page.getByTestId("toolbar-mobile-sheet");
   await expect(mobileSheet).toBeVisible();
   const mobileSheetScroll = page.getByTestId("toolbar-mobile-sheet-scroll");

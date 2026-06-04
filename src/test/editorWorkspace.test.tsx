@@ -8,25 +8,6 @@ import { I18nContext } from "@/i18n/I18nProvider";
 const renderWorkspace = (overrides: Record<string, unknown> = {}) => {
   const baseProps: Record<string, unknown> = {
     activeMode: "markdown",
-    aiAssistantDialogProps: {
-      busyAction: null,
-      compareCandidates: [],
-      comparePreview: null,
-      onCompare: vi.fn(),
-      onExtractProcedure: vi.fn(),
-      onGenerateSection: vi.fn(),
-      onGenerateToc: vi.fn(),
-      onLoadTocPatch: vi.fn(),
-      onOpenChange: vi.fn(),
-      onSuggestUpdates: vi.fn(),
-      onSummarize: vi.fn(),
-      open: false,
-      procedureResult: null,
-      richTextAvailable: false,
-      summaryResult: null,
-      tocPreview: null,
-      updateSuggestionPreview: null,
-    },
     fileInputRef: createRef<HTMLInputElement>(),
     findReplaceProps: {
       editor: null,

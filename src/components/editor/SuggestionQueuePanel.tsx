@@ -163,7 +163,7 @@ const SuggestionQueuePanel = ({
   );
 
   return (
-    <section className="space-y-3 rounded-lg border border-border/60 bg-background/70 p-3 group-data-[collapsible=icon]:hidden">
+    <section className="space-y-3 rounded-lg border border-border/60 bg-background/70 p-3 group-data-[collapsible=icon]:hidden" data-testid="suggestion-queue-panel">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -233,11 +233,11 @@ const SuggestionQueuePanel = ({
                       )}
                     </div>
                     <div className="mt-2 flex items-center gap-2 text-xs font-medium text-foreground">
-                      <button className="truncate hover:underline" onClick={() => onOpenDocument(entry.sourceDocumentId)} type="button">
+                      <button className="truncate hover:underline" data-testid={`suggestion-queue-source-${entry.id}`} onClick={() => onOpenDocument(entry.sourceDocumentId)} type="button">
                         {entry.sourceDocumentName}
                       </button>
                       <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                      <button className="truncate hover:underline" onClick={() => onOpenDocument(entry.targetDocumentId)} type="button">
+                      <button className="truncate hover:underline" data-testid={`suggestion-queue-target-${entry.id}`} onClick={() => onOpenDocument(entry.targetDocumentId)} type="button">
                         {entry.targetDocumentName}
                       </button>
                     </div>
@@ -302,6 +302,7 @@ const SuggestionQueuePanel = ({
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button
                     className="h-7 text-xs"
+                    data-testid={`suggestion-queue-open-graph-${entry.id}`}
                     onClick={() => onOpenGraph(entry.id)}
                     size="sm"
                     type="button"
@@ -325,6 +326,7 @@ const SuggestionQueuePanel = ({
                   <Button
                     className="h-7 text-xs"
                     disabled={!entry.hasPatchSet}
+                    data-testid={`suggestion-queue-open-review-${entry.id}`}
                     onClick={() => onOpenPatchReview(entry.id)}
                     size="sm"
                     type="button"

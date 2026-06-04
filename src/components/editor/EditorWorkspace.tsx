@@ -26,13 +26,9 @@ type KeyboardShortcutsModalProps = ComponentProps<typeof KeyboardShortcutsModal>
 type ExportPreviewPanelProps = ComponentProps<(typeof import("@/components/editor/ExportPreviewPanel"))["default"]>;
 type TemplateDialogProps = ComponentProps<(typeof import("@/components/editor/TemplateDialog"))["default"]>;
 type PatchReviewDialogProps = ComponentProps<(typeof import("@/components/editor/PatchReviewDialog"))["default"]>;
-type AiAssistantDialogProps = ComponentProps<(typeof import("@/components/editor/AiAssistantDialog"))["default"]>;
-type ShareLinkDialogProps = ComponentProps<(typeof import("@/components/editor/ShareLinkDialog"))["default"]>;
 
-const AiAssistantDialog = lazy(() => import("@/components/editor/AiAssistantDialog"));
 const ExportPreviewPanel = lazy(() => import("@/components/editor/ExportPreviewPanel"));
 const PatchReviewDialog = lazy(() => import("@/components/editor/PatchReviewDialog"));
-const ShareLinkDialog = lazy(() => import("@/components/editor/ShareLinkDialog"));
 const TemplateDialog = lazy(() => import("@/components/editor/TemplateDialog"));
 
 const PreviewFallback = () => <div className="h-full bg-background" />;
@@ -91,8 +87,6 @@ interface EditorWorkspaceProps {
   previewProps: ExportPreviewPanelProps;
   renderEditor: () => ReactNode;
   shortcutsModalProps: KeyboardShortcutsModalProps;
-  aiAssistantDialogProps: AiAssistantDialogProps;
-  shareLinkDialogProps: ShareLinkDialogProps;
   patchReviewDialogProps: PatchReviewDialogProps;
   templateDialogProps: TemplateDialogProps;
   onFileChange: ChangeEventHandler<HTMLInputElement>;
@@ -109,8 +103,6 @@ const EditorWorkspace = ({
   previewProps,
   renderEditor,
   shortcutsModalProps,
-  aiAssistantDialogProps,
-  shareLinkDialogProps,
   patchReviewDialogProps,
   templateDialogProps,
   onFileChange,
@@ -179,8 +171,6 @@ const EditorWorkspace = ({
         previewProps={previewProps}
         renderEditor={renderEditor}
         shortcutsModalProps={shortcutsModalProps}
-        aiAssistantDialogProps={aiAssistantDialogProps}
-        shareLinkDialogProps={shareLinkDialogProps}
         patchReviewDialogProps={patchReviewDialogProps}
         templateDialogProps={templateDialogProps}
         onFileChange={onFileChange}
@@ -203,8 +193,6 @@ interface EditorWorkspaceLayoutProps {
   previewProps: ExportPreviewPanelProps;
   renderEditor: () => ReactNode;
   shortcutsModalProps: KeyboardShortcutsModalProps;
-  aiAssistantDialogProps: AiAssistantDialogProps;
-  shareLinkDialogProps: ShareLinkDialogProps;
   patchReviewDialogProps: PatchReviewDialogProps;
   templateDialogProps: TemplateDialogProps;
   onFileChange: ChangeEventHandler<HTMLInputElement>;
@@ -224,8 +212,6 @@ const EditorWorkspaceLayout = ({
   previewProps,
   renderEditor,
   shortcutsModalProps,
-  aiAssistantDialogProps,
-  shareLinkDialogProps,
   patchReviewDialogProps,
   templateDialogProps,
   onFileChange,
@@ -304,20 +290,6 @@ const EditorWorkspaceLayout = ({
           type="file"
         />
         <KeyboardShortcutsModal {...shortcutsModalProps} />
-        {aiAssistantDialogProps.open && (
-          <LazyDialogBoundary fallback={<DialogFallback />}>
-            <Suspense fallback={null}>
-              <AiAssistantDialog {...aiAssistantDialogProps} />
-            </Suspense>
-          </LazyDialogBoundary>
-        )}
-        {shareLinkDialogProps.open && (
-          <LazyDialogBoundary fallback={<DialogFallback />}>
-            <Suspense fallback={null}>
-              <ShareLinkDialog {...shareLinkDialogProps} />
-            </Suspense>
-          </LazyDialogBoundary>
-        )}
         {patchReviewDialogProps.open && (
           <LazyDialogBoundary fallback={<DialogFallback />}>
             <Suspense fallback={null}>
