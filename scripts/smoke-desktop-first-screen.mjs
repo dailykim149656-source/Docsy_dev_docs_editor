@@ -127,7 +127,17 @@ if (!executablePath) {
   process.exit(1);
 }
 
-const app = await electron.launch({ executablePath });
+const launchArgs = process.platform === "linux" ? ["--no-sandbox"] : [];
+console.log(`[desktop-smoke] Launching ${executablePath}`);
+
+const app = await electron.launch({
+  args: launchArgs,
+  env: {
+    ...process.env,
+    ELECTRON_ENABLE_LOGGING: "1",
+  },
+  executablePath,
+});
 
 try {
   const page = await app.firstWindow({ timeout: timeoutMs });
