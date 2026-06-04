@@ -21,6 +21,24 @@ const isExecutable = (filePath) => {
   return Boolean(fs.statSync(filePath).mode & 0o111);
 };
 
+const isLikelyAppExecutable = (filePath) => {
+  const fileName = path.basename(filePath).toLowerCase();
+
+  if (!isExecutable(filePath)) {
+    return false;
+  }
+
+  if (fileName.endsWith(".so") || fileName.includes(".so.")) {
+    return false;
+  }
+
+  return ![
+    "chrome-sandbox",
+    "chrome_crashpad_handler",
+    "crashpad_handler",
+  ].includes(fileName);
+};
+
 const walkFiles = (directory, maxDepth = 6) => {
   const files = [];
 
@@ -49,6 +67,31 @@ const walkFiles = (directory, maxDepth = 6) => {
   return files;
 };
 
+const findExecutableBesideAsar = () => {
+  const unpackedDirs = [
+    path.join(releaseDir, "linux-unpacked"),
+    path.join(releaseDir, "win-unpacked"),
+    path.join(releaseDir, "mac", "Docsy.app", "Contents", "MacOS"),
+  ];
+
+  for (const unpackedDir of unpackedDirs) {
+    if (!fs.existsSync(path.join(unpackedDir, "resources", "app.asar"))) {
+      continue;
+    }
+
+    const executable = fs
+      .readdirSync(unpackedDir)
+      .map((entry) => path.join(unpackedDir, entry))
+      .find(isLikelyAppExecutable);
+
+    if (executable) {
+      return executable;
+    }
+  }
+
+  return undefined;
+};
+
 const findPackagedExecutable = () => {
   if (process.env.DOCSY_DESKTOP_EXECUTABLE) {
     return path.resolve(projectRoot, process.env.DOCSY_DESKTOP_EXECUTABLE);
@@ -66,10 +109,14 @@ const findPackagedExecutable = () => {
     return preferred;
   }
 
+  const asarSiblingExecutable = findExecutableBesideAsar();
+  if (asarSiblingExecutable) {
+    return asarSiblingExecutable;
+  }
+
   return walkFiles(releaseDir).find((filePath) => {
     const normalized = filePath.replace(/\\/g, "/");
-    const fileName = path.basename(filePath).toLowerCase();
-    return normalized.includes("-unpacked/") && fileName.startsWith("docsy") && isExecutable(filePath);
+    return normalized.includes("-unpacked/") && isLikelyAppExecutable(filePath);
   });
 };
 
