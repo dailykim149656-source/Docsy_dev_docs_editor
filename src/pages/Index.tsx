@@ -70,26 +70,17 @@ import {
   MAX_IMPORT_FILE_SIZE_BYTES,
   resolveImportedDocumentOptions,
 } from "@/lib/io/documentIoShared";
-import { DOC_SHARE_HASH_PREFIX } from "@/lib/share/shareConstants";
-import { buildSummaryDocumentDraft, type SummaryDocumentDraftInput } from "@/lib/ai/summaryDocument";
 import type { DocumentVersionSnapshotMetadata, EditorMode, SourceSnapshots } from "@/types/document";
 import type { DocumentPatchSet } from "@/types/documentPatch";
-import type { AgentNewDocumentDraft } from "@/types/liveAgent";
 import { toast } from "sonner";
 
 const MarkdownEditor = lazy(() => import("@/components/editor/MarkdownEditor"));
 const LatexEditor = lazy(() => import("@/components/editor/LatexEditor"));
 const HtmlEditor = lazy(() => import("@/components/editor/HtmlEditor"));
 const JsonYamlEditor = lazy(() => import("@/components/editor/JsonYamlEditor"));
-const AiAssistantRuntime = lazy(() => import("@/components/editor/AiAssistantRuntime"));
 const DocumentIORuntime = lazy(() => import("@/components/editor/DocumentIORuntime"));
 const DocumentSupportRuntime = lazy(() => import("@/components/editor/DocumentSupportRuntime"));
 const PreviewRuntime = lazy(() => import("@/components/editor/PreviewRuntime"));
-const WorkspaceRuntime = lazy(() => import("@/components/editor/WorkspaceRuntime"));
-const VisualNavigatorOverlay = lazy(() => import("@/components/editor/VisualNavigatorOverlay"));
-const WorkspaceConnectionDialog = lazy(() => import("@/components/editor/WorkspaceConnectionDialog"));
-const WorkspaceExportDialog = lazy(() => import("@/components/editor/WorkspaceExportDialog"));
-const WorkspaceImportDialog = lazy(() => import("@/components/editor/WorkspaceImportDialog"));
 
 const EditorFallback = () => (
   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -369,7 +360,11 @@ const Index = () => {
   const [activeEditor, setActiveEditor] = useState<TiptapEditor | null>(null);
   const [pendingImpactSuggestions, setPendingImpactSuggestions] = useState<PendingImpactSuggestionEntry[]>([]);
   const [plainTextSearchAdapter, setPlainTextSearchAdapter] = useState<PlainTextFindReplaceAdapter | null>(null);
-  const [userProfile, setUserProfile] = useState(() => readUserProfilePreference());
+  const [userProfile, setUserProfile] = useState(() => readUserProfilePreference(featureFlags.defaultUserProfile));
+  const llmFeaturesEnabled = featureFlags.llmFeaturesEnabled;
+  const remoteShareEnabled = featureFlags.remoteShareEnabled;
+  const remoteTexServiceEnabled = featureFlags.remoteTexServiceEnabled;
+  const remoteWorkspaceEnabled = featureFlags.remoteWorkspaceEnabled;
   const [advancedBlocksPreference, setAdvancedBlocksPreference] = useState(() =>
     featureFlags.advancedBlocksOnInitialMount || readAdvancedBlocksPreference(),
   );
@@ -570,12 +565,16 @@ const Index = () => {
   const openPatchReview = requestPatchReviewOpen;
   const loadPatchSet = requestPatchSetLoad;
   const ensureWorkspaceRuntime = useCallback((pendingAction?: PendingWorkspaceAction) => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     setWorkspaceRuntimeEnabled(true);
 
     if (pendingAction) {
       setPendingWorkspaceAction(pendingAction);
     }
-  }, []);
+  }, [remoteWorkspaceEnabled]);
   const ensureIoRuntime = useCallback((pendingAction?: PendingIoAction) => {
     setIoRuntimeEnabled(true);
 
@@ -583,8 +582,8 @@ const Index = () => {
       setPendingIoAction(pendingAction);
     }
   }, []);
-  const workspaceSyncing = workspaceRuntimeState?.isSyncing ?? false;
-  const workspaceExporting = workspaceRuntimeState?.isExporting ?? false;
+  const workspaceSyncing = remoteWorkspaceEnabled ? workspaceRuntimeState?.isSyncing ?? false : false;
+  const workspaceExporting = remoteWorkspaceEnabled ? workspaceRuntimeState?.isExporting ?? false : false;
   const fileInputRef = ioRuntimeState?.fileInputRef ?? shellFileInputRef;
   const importState = ioRuntimeState?.importState ?? {
     error: null,
@@ -624,13 +623,17 @@ const Index = () => {
     ensureIoRuntime({ type: "copy-md" });
   }, [ensureIoRuntime, ioRuntimeState]);
   const handleCopyShareLink = useCallback(() => {
+    if (!remoteShareEnabled) {
+      return;
+    }
+
     if (ioRuntimeState) {
       void ioRuntimeState.handleCopyShareLink();
       return;
     }
 
     ensureIoRuntime({ type: "copy-share-link" });
-  }, [ensureIoRuntime, ioRuntimeState]);
+  }, [ensureIoRuntime, ioRuntimeState, remoteShareEnabled]);
   const handleCopyYaml = useCallback(() => {
     if (ioRuntimeState) {
       void ioRuntimeState.handleCopyYaml();
@@ -739,42 +742,58 @@ const Index = () => {
     ensureIoRuntime({ type: "save-yaml" });
   }, [ensureIoRuntime, ioRuntimeState]);
   const handleOpenShare = useCallback(() => {
+    if (!remoteShareEnabled) {
+      return;
+    }
+
     if (ioRuntimeState) {
       void ioRuntimeState.prepareShareLink().finally(() => setShareDialogOpen(true));
       return;
     }
 
     ensureIoRuntime({ type: "open-share-dialog" });
-  }, [ensureIoRuntime, ioRuntimeState]);
+  }, [ensureIoRuntime, ioRuntimeState, remoteShareEnabled]);
   const syncDocument = useCallback(async (
     document: typeof activeDoc,
     options?: {
       markdown?: string;
     },
   ) => {
+    if (!remoteWorkspaceEnabled) {
+      return null;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime();
       return null;
     }
 
     return workspaceRuntimeState.syncDocument(document, options);
-  }, [ensureWorkspaceRuntime, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, remoteWorkspaceEnabled, workspaceRuntimeState]);
   const refetchWorkspaceFiles = useCallback(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (workspaceRuntimeState) {
       void workspaceRuntimeState.refetchFiles();
       return;
     }
 
     ensureWorkspaceRuntime();
-  }, [ensureWorkspaceRuntime, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, remoteWorkspaceEnabled, workspaceRuntimeState]);
   const setWorkspaceFileQuery = useCallback((value: string) => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (workspaceRuntimeState) {
       workspaceRuntimeState.setQuery(value);
       return;
     }
 
     ensureWorkspaceRuntime();
-  }, [ensureWorkspaceRuntime, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, remoteWorkspaceEnabled, workspaceRuntimeState]);
   const closePatchReview = useCallback(() => {
     documentSupportRuntimeState?.closePatchReview();
   }, [documentSupportRuntimeState]);
@@ -818,29 +837,31 @@ const Index = () => {
   useEffect(() => {
     setPendingLatexSourceLine(null);
   }, [activeDoc.id, activeDoc.mode]);
-  const workspaceConnected = workspaceRuntimeState?.connected ?? false;
-  const connectivityDiagnostic = workspaceRuntimeState?.connectivityDiagnostic ?? null;
-  const workspaceAuthError = workspaceRuntimeState?.authError ?? null;
-  const workspaceConnecting = workspaceRuntimeState?.isConnecting ?? false;
-  const workspaceDisconnecting = workspaceRuntimeState?.isDisconnecting ?? false;
-  const workspaceAuthLoading = workspaceRuntimeState?.isAuthLoading ?? false;
-  const workspaceSession = workspaceRuntimeState?.session ?? {
+  const workspaceConnected = remoteWorkspaceEnabled ? workspaceRuntimeState?.connected ?? false : false;
+  const connectivityDiagnostic = remoteWorkspaceEnabled ? workspaceRuntimeState?.connectivityDiagnostic ?? null : null;
+  const workspaceAuthError = remoteWorkspaceEnabled ? workspaceRuntimeState?.authError ?? null : null;
+  const workspaceConnecting = remoteWorkspaceEnabled ? workspaceRuntimeState?.isConnecting ?? false : false;
+  const workspaceDisconnecting = remoteWorkspaceEnabled ? workspaceRuntimeState?.isDisconnecting ?? false : false;
+  const workspaceAuthLoading = remoteWorkspaceEnabled ? workspaceRuntimeState?.isAuthLoading ?? false : false;
+  const workspaceSession = remoteWorkspaceEnabled && workspaceRuntimeState?.session ? workspaceRuntimeState.session : {
     connected: false,
     provider: null,
     user: null,
   };
-  const workspaceFiles = workspaceRuntimeState?.files ?? [];
-  const workspaceImporting = workspaceRuntimeState?.isImporting ?? false;
-  const workspaceFilesLoading = workspaceRuntimeState
-    ? workspaceRuntimeState.isFilesLoading
-    : workspaceImportOpen;
-  const workspaceFilesRefreshing = workspaceRuntimeState?.isRefreshingFiles ?? false;
-  const workspaceFileQuery = workspaceRuntimeState?.query ?? "";
-  const workspaceChangesError = workspaceRuntimeState?.changesError ?? null;
-  const workspaceRefreshingDocument = workspaceRuntimeState?.isRefreshingDocument ?? false;
-  const workspaceChangesRescanning = workspaceRuntimeState?.isRescanning ?? false;
-  const workspaceLastRescannedAt = workspaceRuntimeState?.lastRescannedAt ?? null;
-  const remoteChangedSources = workspaceRuntimeState?.remoteChangedSources ?? [];
+  const workspaceFiles = remoteWorkspaceEnabled ? workspaceRuntimeState?.files ?? [] : [];
+  const workspaceImporting = remoteWorkspaceEnabled ? workspaceRuntimeState?.isImporting ?? false : false;
+  const workspaceFilesLoading = remoteWorkspaceEnabled
+    ? workspaceRuntimeState
+      ? workspaceRuntimeState.isFilesLoading
+      : workspaceImportOpen
+    : false;
+  const workspaceFilesRefreshing = remoteWorkspaceEnabled ? workspaceRuntimeState?.isRefreshingFiles ?? false : false;
+  const workspaceFileQuery = remoteWorkspaceEnabled ? workspaceRuntimeState?.query ?? "" : "";
+  const workspaceChangesError = remoteWorkspaceEnabled ? workspaceRuntimeState?.changesError ?? null : null;
+  const workspaceRefreshingDocument = remoteWorkspaceEnabled ? workspaceRuntimeState?.isRefreshingDocument ?? false : false;
+  const workspaceChangesRescanning = remoteWorkspaceEnabled ? workspaceRuntimeState?.isRescanning ?? false : false;
+  const workspaceLastRescannedAt = remoteWorkspaceEnabled ? workspaceRuntimeState?.lastRescannedAt ?? null : null;
+  const remoteChangedSources = remoteWorkspaceEnabled ? workspaceRuntimeState?.remoteChangedSources ?? [] : [];
   const activeDocumentCompatibility = useMemo(
     () => getActiveDocumentCompatibility(activeDoc, effectiveCapabilities),
     [activeDoc, effectiveCapabilities],
@@ -921,6 +942,10 @@ const Index = () => {
   }, []);
 
   const runAiIntent = useCallback(async (intent: PendingAiIntent) => {
+    if (!llmFeaturesEnabled) {
+      return;
+    }
+
     if (!aiRuntimeState) {
       return;
     }
@@ -977,10 +1002,10 @@ const Index = () => {
 
       throw error;
     }
-  }, [aiRuntimeState, t, updateSuggestionQueueEntry]);
+  }, [aiRuntimeState, llmFeaturesEnabled, t, updateSuggestionQueueEntry]);
 
   const requestAiIntent = useCallback((intent: PendingAiIntent) => {
-    if (!canAccessAiAssistant) {
+    if (!canAccessAiAssistant || !llmFeaturesEnabled) {
       return;
     }
 
@@ -994,7 +1019,7 @@ const Index = () => {
 
     setAiRuntimeEnabled(true);
     setPendingAiIntent(intent);
-  }, [activeEditor, aiRuntimeState, canAccessAiAssistant, runAiIntent]);
+  }, [activeEditor, aiRuntimeState, canAccessAiAssistant, llmFeaturesEnabled, runAiIntent]);
   const handleTogglePreview = useCallback(() => {
     if (previewOpen) {
       togglePreview();
@@ -1020,7 +1045,7 @@ const Index = () => {
     sourceDocumentId: string;
     targetDocumentId: string;
   }) => {
-    if (!canAccessKnowledge) {
+    if (!canAccessKnowledge || !llmFeaturesEnabled) {
       return;
     }
 
@@ -1110,7 +1135,7 @@ const Index = () => {
         targetDocumentId,
       },
     ]);
-  }, [activeDoc.id, canAccessKnowledge, getDocumentNameById, requestAiIntent, suggestionQueue, t]);
+  }, [activeDoc.id, canAccessKnowledge, getDocumentNameById, llmFeaturesEnabled, requestAiIntent, suggestionQueue, t]);
   const suggestionQueueItems = useMemo(
     () => suggestionQueue.map(({ patchSet: _patchSet, ...entry }) => entry),
     [suggestionQueue],
@@ -1178,12 +1203,20 @@ const Index = () => {
     }, { replace: true });
   }, [setSearchParams]);
   useEffect(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (searchParams.get("workspaceAuth") || searchParams.get("workspaceAuthError") || aiRuntimeEnabled) {
       setWorkspaceRuntimeEnabled(true);
     }
-  }, [aiRuntimeEnabled, searchParams]);
+  }, [aiRuntimeEnabled, remoteWorkspaceEnabled, searchParams]);
 
   useEffect(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (workspaceRuntimeEnabled || !documents.some((document) => document.workspaceBinding)) {
       return;
     }
@@ -1191,7 +1224,7 @@ const Index = () => {
     return scheduleIdleMount(() => {
       setWorkspaceRuntimeEnabled(true);
     });
-  }, [documents, workspaceRuntimeEnabled]);
+  }, [documents, remoteWorkspaceEnabled, workspaceRuntimeEnabled]);
 
   useEffect(() => {
     if (!ioRuntimeState || !pendingIoAction) {
@@ -1209,7 +1242,9 @@ const Index = () => {
         void ioRuntimeState.handleCopyMd();
         break;
       case "copy-share-link":
-        void ioRuntimeState.handleCopyShareLink();
+        if (remoteShareEnabled) {
+          void ioRuntimeState.handleCopyShareLink();
+        }
         break;
       case "copy-yaml":
         void ioRuntimeState.handleCopyYaml();
@@ -1218,7 +1253,9 @@ const Index = () => {
         ioRuntimeState.handleLoad();
         break;
       case "open-share-dialog":
-        void ioRuntimeState.prepareShareLink().finally(() => setShareDialogOpen(true));
+        if (remoteShareEnabled) {
+          void ioRuntimeState.prepareShareLink().finally(() => setShareDialogOpen(true));
+        }
         break;
       case "print":
         ioRuntimeState.handlePrint();
@@ -1258,7 +1295,7 @@ const Index = () => {
     }
 
     setPendingIoAction(null);
-  }, [ioRuntimeState, pendingIoAction]);
+  }, [ioRuntimeState, pendingIoAction, remoteShareEnabled]);
 
   const resolveActiveWorkspaceMarkdown = useCallback(async () => {
     if (activeDoc.mode === "json" || activeDoc.mode === "yaml") {
@@ -1269,6 +1306,10 @@ const Index = () => {
   }, [activeDoc.content, activeDoc.mode, getFreshRenderableMarkdown]);
 
   const executeWorkspaceAction = useCallback(async (action: PendingWorkspaceAction) => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     const runtime = workspaceRuntimeState;
 
     if (!runtime) {
@@ -1379,7 +1420,7 @@ const Index = () => {
       default:
         return;
     }
-  }, [activeDoc, activeDocId, createDocument, documents, resolveActiveWorkspaceMarkdown, t, workspaceRuntimeState]);
+  }, [activeDoc, activeDocId, createDocument, documents, remoteWorkspaceEnabled, resolveActiveWorkspaceMarkdown, t, workspaceRuntimeState]);
 
   useEffect(() => {
     if (!workspaceRuntimeState || !pendingWorkspaceAction) {
@@ -1408,31 +1449,47 @@ const Index = () => {
 
     return workspaceRuntimeState.authError.message;
   }, [t, workspaceRuntimeState]);
-  const workspaceExportErrorMessage = workspaceRuntimeState?.exportError instanceof Error ? workspaceRuntimeState.exportError.message : null;
-  const workspaceImportErrorMessage = workspaceRuntimeState?.filesError instanceof Error ? workspaceRuntimeState.filesError.message : null;
-  const workspaceChangesErrorMessage = workspaceRuntimeState?.changesError instanceof Error ? workspaceRuntimeState.changesError.message : null;
-  const workspaceExportEnabled = activeDoc.mode !== "json" && activeDoc.mode !== "yaml" && !activeDoc.workspaceBinding;
+  const workspaceExportErrorMessage = remoteWorkspaceEnabled && workspaceRuntimeState?.exportError instanceof Error ? workspaceRuntimeState.exportError.message : null;
+  const workspaceImportErrorMessage = remoteWorkspaceEnabled && workspaceRuntimeState?.filesError instanceof Error ? workspaceRuntimeState.filesError.message : null;
+  const workspaceChangesErrorMessage = remoteWorkspaceEnabled && workspaceRuntimeState?.changesError instanceof Error ? workspaceRuntimeState.changesError.message : null;
+  const workspaceExportEnabled = remoteWorkspaceEnabled && activeDoc.mode !== "json" && activeDoc.mode !== "yaml" && !activeDoc.workspaceBinding;
   const handleOpenWorkspaceConnection = useCallback(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     setWorkspaceRuntimeEnabled(true);
     setWorkspaceConnectionOpen(true);
-  }, []);
+  }, [remoteWorkspaceEnabled]);
   const handleOpenWorkspaceExport = useCallback(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime({ type: "open-export-dialog" });
       return;
     }
 
     void executeWorkspaceAction({ type: "open-export-dialog" });
-  }, [ensureWorkspaceRuntime, executeWorkspaceAction, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, workspaceRuntimeState]);
   const handleOpenWorkspaceImport = useCallback(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime({ type: "open-import-dialog" });
       return;
     }
 
     void executeWorkspaceAction({ type: "open-import-dialog" });
-  }, [ensureWorkspaceRuntime, executeWorkspaceAction, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, workspaceRuntimeState]);
   const handleConnectWorkspace = useCallback(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime({ type: "connect-workspace" });
       return;
@@ -1442,8 +1499,12 @@ const Index = () => {
       const message = error instanceof Error ? error.message : t("hooks.workspace.authStartFailed");
       toast.error(message);
     });
-  }, [ensureWorkspaceRuntime, executeWorkspaceAction, t, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, t, workspaceRuntimeState]);
   const handleDisconnectWorkspace = useCallback(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime({ type: "disconnect-workspace" });
       return;
@@ -1453,8 +1514,12 @@ const Index = () => {
       const message = error instanceof Error ? error.message : t("hooks.workspace.disconnectFailed");
       toast.error(message);
     });
-  }, [ensureWorkspaceRuntime, executeWorkspaceAction, t, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, t, workspaceRuntimeState]);
   const importWorkspaceDocumentById = useCallback(async (fileId: string) => {
+    if (!remoteWorkspaceEnabled) {
+      return null;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime({ fileId, type: "import-workspace-file" });
       return null;
@@ -1462,7 +1527,7 @@ const Index = () => {
 
     await executeWorkspaceAction({ fileId, type: "import-workspace-file" });
     return null;
-  }, [ensureWorkspaceRuntime, executeWorkspaceAction, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, workspaceRuntimeState]);
   const handleImportWorkspaceFile = useCallback((fileId: string) => {
     void importWorkspaceDocumentById(fileId).catch((error) => {
       const message = error instanceof Error ? error.message : t("hooks.workspace.importFailed");
@@ -1470,6 +1535,10 @@ const Index = () => {
     });
   }, [importWorkspaceDocumentById, t]);
   const handleExportWorkspaceDocument = useCallback((title: string) => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime({ title, type: "export-workspace-document" });
       return;
@@ -1480,8 +1549,12 @@ const Index = () => {
         const message = error instanceof Error ? error.message : t("hooks.workspace.exportFailed");
         toast.error(message);
       });
-  }, [ensureWorkspaceRuntime, executeWorkspaceAction, t, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, t, workspaceRuntimeState]);
   const handleSaveWorkspaceDocument = useCallback(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (!activeDoc.workspaceBinding) {
       return;
     }
@@ -1496,8 +1569,12 @@ const Index = () => {
         const message = error instanceof Error ? error.message : t("hooks.workspace.saveFailed");
         toast.error(message);
       });
-  }, [activeDoc.workspaceBinding, ensureWorkspaceRuntime, executeWorkspaceAction, t, workspaceRuntimeState]);
+  }, [activeDoc.workspaceBinding, ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, t, workspaceRuntimeState]);
   const handleRescanWorkspaceChanges = useCallback(() => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime({ type: "rescan-workspace-changes" });
       return;
@@ -1508,8 +1585,12 @@ const Index = () => {
         const message = error instanceof Error ? error.message : t("hooks.workspace.rescanFailed");
         toast.error(message);
       });
-  }, [ensureWorkspaceRuntime, executeWorkspaceAction, t, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, t, workspaceRuntimeState]);
   const handleRefreshWorkspaceDocument = useCallback((documentId: string) => {
+    if (!remoteWorkspaceEnabled) {
+      return;
+    }
+
     if (!workspaceRuntimeState) {
       ensureWorkspaceRuntime({ documentId, type: "refresh-workspace-document" });
       return;
@@ -1520,7 +1601,7 @@ const Index = () => {
         const message = error instanceof Error ? error.message : t("hooks.workspace.refreshFailed");
         toast.error(message);
       });
-  }, [ensureWorkspaceRuntime, executeWorkspaceAction, t, workspaceRuntimeState]);
+  }, [ensureWorkspaceRuntime, executeWorkspaceAction, remoteWorkspaceEnabled, t, workspaceRuntimeState]);
 
   useEffect(() => {
     if (activeDoc.mode === "json" || activeDoc.mode === "yaml") {
@@ -1617,6 +1698,11 @@ const Index = () => {
   }, [documentSupportRuntimeState, pendingDocumentSupportIntent]);
 
   useEffect(() => {
+    if (!llmFeaturesEnabled) {
+      setPendingAiIntent(null);
+      return;
+    }
+
     if (!aiRuntimeState || !pendingAiIntent) {
       return;
     }
@@ -1630,17 +1716,17 @@ const Index = () => {
 
     void runAiIntent(pendingAiIntent);
     setPendingAiIntent(null);
-  }, [activeEditor, aiRuntimeState, currentRenderableMarkdown, pendingAiIntent, runAiIntent]);
+  }, [activeEditor, aiRuntimeState, currentRenderableMarkdown, llmFeaturesEnabled, pendingAiIntent, runAiIntent]);
 
   useEffect(() => {
-    if (!workspaceErrorMessage) {
+    if (!remoteWorkspaceEnabled || !workspaceErrorMessage) {
       return;
     }
 
     toast.error(workspaceErrorMessage, {
       id: "workspace-auth-startup-error",
     });
-  }, [workspaceErrorMessage]);
+  }, [remoteWorkspaceEnabled, workspaceErrorMessage]);
 
   const resolveWorkspaceAuthErrorMessage = useCallback((authError: string) => {
     switch (authError) {
@@ -1658,6 +1744,13 @@ const Index = () => {
   }, [t]);
 
   useEffect(() => {
+    if (!remoteWorkspaceEnabled) {
+      if (searchParams.get("workspaceAuth") || searchParams.get("workspaceAuthError")) {
+        clearWorkspaceAuthParams();
+      }
+      return;
+    }
+
     const authResult = searchParams.get("workspaceAuth");
     const authError = searchParams.get("workspaceAuthError");
     const authMarker = authResult
@@ -1722,19 +1815,19 @@ const Index = () => {
     return () => {
       cancelled = true;
     };
-  }, [clearWorkspaceAuthParams, resolveWorkspaceAuthErrorMessage, searchParams, t, workspaceRuntimeState]);
+  }, [clearWorkspaceAuthParams, remoteWorkspaceEnabled, resolveWorkspaceAuthErrorMessage, searchParams, t, workspaceRuntimeState]);
 
   useEffect(() => {
-    if (workspaceRuntimeState && !workspaceConnected && workspaceImportOpen) {
+    if ((workspaceRuntimeState || !remoteWorkspaceEnabled) && !workspaceConnected && workspaceImportOpen) {
       setWorkspaceImportOpen(false);
     }
-  }, [workspaceConnected, workspaceImportOpen, workspaceRuntimeState]);
+  }, [remoteWorkspaceEnabled, workspaceConnected, workspaceImportOpen, workspaceRuntimeState]);
 
   useEffect(() => {
-    if (workspaceRuntimeState && !workspaceConnected && workspaceExportOpen) {
+    if ((workspaceRuntimeState || !remoteWorkspaceEnabled) && !workspaceConnected && workspaceExportOpen) {
       setWorkspaceExportOpen(false);
     }
-  }, [workspaceConnected, workspaceExportOpen, workspaceRuntimeState]);
+  }, [remoteWorkspaceEnabled, workspaceConnected, workspaceExportOpen, workspaceRuntimeState]);
 
   useEffect(() => {
     if (!workspaceImportOpen && workspaceFileQuery) {
@@ -1743,15 +1836,20 @@ const Index = () => {
   }, [setWorkspaceFileQuery, workspaceFileQuery, workspaceImportOpen]);
 
   useEffect(() => {
-    if (!workspaceChangesErrorMessage) {
+    if (!remoteWorkspaceEnabled || !workspaceChangesErrorMessage) {
       return;
     }
 
     toast.error(workspaceChangesErrorMessage);
-  }, [workspaceChangesErrorMessage]);
+  }, [remoteWorkspaceEnabled, workspaceChangesErrorMessage]);
 
   useEffect(() => {
     if (searchParams.get("knowledgeAction") !== "suggest-updates") {
+      return;
+    }
+
+    if (!llmFeaturesEnabled) {
+      clearKnowledgeActionParams();
       return;
     }
 
@@ -1792,7 +1890,7 @@ const Index = () => {
     });
 
     clearKnowledgeActionParams();
-  }, [clearKnowledgeActionParams, queueKnowledgeSuggestion, searchParams]);
+  }, [clearKnowledgeActionParams, llmFeaturesEnabled, queueKnowledgeSuggestion, searchParams]);
 
   const handleFileNameChange = useCallback((name: string) => {
     updateActiveDoc({ name });
@@ -1858,55 +1956,6 @@ const Index = () => {
 
     createDocument({ mode });
   }, [createDocument, effectiveCapabilities, enableStructuredModes]);
-  const handleCreateLiveAgentDocumentDraft = useCallback((draft: AgentNewDocumentDraft) => {
-    const resolvedTitle = draft.title.trim() || t("common.untitled");
-    const markdown = draft.markdown.trim();
-
-    createDocument({
-      content: markdown,
-      mode: "markdown",
-      name: resolvedTitle,
-      sourceSnapshots: {
-        markdown,
-      },
-      storageKind: "docsy",
-      tiptapJson: null,
-    });
-    toast.success(`Created draft "${resolvedTitle}".`);
-  }, [createDocument, t]);
-  const handleCreateSummaryDocument = useCallback(({
-    createdAt,
-    documentKind,
-    locale: draftLocale,
-    objective,
-    sourceDocumentId,
-    sourceDocumentName,
-    summary,
-  }: SummaryDocumentDraftInput) => {
-    const draft = buildSummaryDocumentDraft({
-      createdAt,
-      documentKind,
-      locale: draftLocale || locale,
-      objective,
-      sourceDocumentId,
-      sourceDocumentName,
-      summary,
-    });
-
-    createDocument({
-      content: draft.markdown,
-      mode: "markdown",
-      name: draft.title,
-      sourceSnapshots: {
-        markdown: draft.markdown,
-      },
-      storageKind: "docsy",
-      tiptapJson: null,
-    });
-    toast.success(`Created ${documentKind === "handover" ? "handover" : "summary"} document "${draft.title}".`);
-    return draft;
-  }, [createDocument, locale]);
-
   const handleDeleteDoc = useCallback((id: string) => {
     deleteDocument(id);
     void removeDocumentVersionHistory(id);
@@ -2040,78 +2089,6 @@ const Index = () => {
       toast.dismiss(UNEXPECTED_RELOAD_RECOVERED_TOAST_ID);
     };
   }, [hasRestoredDocuments, resetDocumentsDisabled, t, unexpectedReloadState]);
-
-  useEffect(() => {
-    const openSharedDocumentFromHash = async () => {
-      if (typeof window === "undefined" || !window.location.hash.startsWith(DOC_SHARE_HASH_PREFIX)) {
-        return;
-      }
-
-      try {
-        const { parseSharedDocumentFromHash } = await import("@/lib/share/docShare");
-        const sharedDocument = parseSharedDocumentFromHash(window.location.hash);
-
-        if (!sharedDocument) {
-          return;
-        }
-
-        createDocument(sharedDocument);
-        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-        toast.success(t("hooks.io.sharedDocumentLoaded"));
-      } catch (error) {
-        window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
-        toast.error(error instanceof Error ? error.message : t("hooks.io.sharedDocumentFailed"));
-      }
-    };
-
-    void openSharedDocumentFromHash();
-    const handleHashChange = () => {
-      void openSharedDocumentFromHash();
-    };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
-  }, [createDocument, t]);
-
-  useEffect(() => {
-    const openSharedDocumentFromServerLink = async () => {
-      if (!shareId || typeof window === "undefined") {
-        return;
-      }
-
-      try {
-        const { parseSharedDocumentFromSerializedPayload } = await import("@/lib/share/docShare");
-        const { resolveDocumentShare } = await import("@/lib/share/shareClient");
-        const response = await resolveDocumentShare(shareId);
-        const sharedDocument = parseSharedDocumentFromSerializedPayload(response.payload);
-
-        createDocument(sharedDocument);
-        navigate({
-          pathname: "/editor",
-          search: window.location.search,
-        }, { replace: true });
-        toast.success(t("hooks.io.sharedDocumentLoaded"));
-      } catch (error) {
-        navigate({
-          pathname: "/editor",
-          search: window.location.search,
-        }, { replace: true });
-
-        const { getShareResolveErrorCode } = await import("@/lib/share/shareClient");
-        const errorCode = getShareResolveErrorCode(error);
-        const messageKey = errorCode === "expired"
-          ? "hooks.io.sharedDocumentExpired"
-          : errorCode === "not_found"
-            ? "hooks.io.sharedDocumentMissing"
-            : errorCode === "server_unavailable"
-              ? "hooks.io.shareServerUnavailable"
-              : "hooks.io.sharedDocumentFailed";
-
-        toast.error(t(messageKey));
-      }
-    };
-
-    void openSharedDocumentFromServerLink();
-  }, [createDocument, navigate, shareId, t]);
 
   useEffect(() => {
     if (autoSaveState.status !== "saved" || !autoSaveState.lastSavedAt) {
@@ -2363,137 +2340,8 @@ const Index = () => {
 
     return aiRuntimeState?.liveAgent.latestStatus?.message || null;
   }, [aiRuntimeState?.liveAgent.latestStatus?.message, workspaceRuntimeState?.apiHealth]);
+  void aiUnavailableMessage;
 
-  const aiAssistantDialogProps = canAccessAiAssistant && aiRuntimeState
-    ? {
-      activeDocumentName: activeDoc.name,
-      aiUnavailableMessage,
-      busyAction: aiRuntimeState.busyAction,
-      compareCandidates: aiRuntimeState.compareCandidates,
-      comparePreview: aiRuntimeState.comparePreview,
-      lastSummaryObjective: aiRuntimeState.lastSummaryObjective,
-      liveAgent: aiRuntimeState.liveAgent,
-      onCompare: aiRuntimeState.compareWithDocument,
-      onCreateSummaryDocument: () => {
-        if (!aiRuntimeState.summaryResult || !aiRuntimeState.lastSummaryObjective) {
-          return;
-        }
-
-        handleCreateSummaryDocument({
-          locale,
-          objective: aiRuntimeState.lastSummaryObjective,
-          sourceDocumentId: activeDoc.id,
-          sourceDocumentName: activeDoc.name,
-          summary: aiRuntimeState.summaryResult,
-        });
-      },
-      onExtractProcedure: aiRuntimeState.extractProcedureFromActiveDocument,
-      onGenerateSection: aiRuntimeState.generateSectionPatch,
-      onGenerateToc: aiRuntimeState.generateTocSuggestion,
-      onLoadTocPatch: async (maxDepthOverride?: 1 | 2 | 3) => {
-        const patchSet = await aiRuntimeState.loadTocPatch(maxDepthOverride);
-        return patchSet;
-      },
-      onOpenChange: aiRuntimeState.setAssistantOpen,
-      onSuggestUpdates: async (targetDocumentId: string) => {
-        await runAiIntent({ targetDocumentId, type: "suggest-updates" });
-      },
-      onSummarize: aiRuntimeState.summarizeActiveDocument,
-      open: aiRuntimeState.assistantOpen,
-      procedureResult: aiRuntimeState.procedureResult,
-      richTextAvailable: aiRuntimeState.richTextAvailable,
-      summaryResult: aiRuntimeState.summaryResult,
-      tocPreview: aiRuntimeState.tocPreview,
-      updateSuggestionPreview: aiRuntimeState.updateSuggestionPreview,
-      visualNavigator: aiRuntimeState.visualNavigator,
-    }
-    : {
-      activeDocumentName: activeDoc.name,
-      aiUnavailableMessage,
-      busyAction: null,
-      compareCandidates: [],
-      comparePreview: null,
-      lastSummaryObjective: null,
-      liveAgent: {
-        addDriveReference: () => undefined,
-        artifacts: [],
-        availableLocalReferences: [],
-        availableTargetDocuments: [],
-        composerText: "",
-        confirmPendingAction: async () => undefined,
-        createSummaryDocumentFromArtifact: () => undefined,
-        discardPendingAction: () => undefined,
-        isSubmitting: false,
-        latestDraftPreview: null,
-        latestDriveCandidates: [],
-        latestError: null,
-        latestStatus: null,
-        messages: [],
-        openArtifactPatchReview: () => undefined,
-        pendingConfirmation: null,
-        queueDriveImport: () => undefined,
-        removeDriveReference: () => undefined,
-        resolveArtifactDocumentTarget: async () => undefined,
-        resetThread: () => undefined,
-        selectedDriveReferences: [],
-        selectedLocalReferenceIds: [],
-        sendMessage: async () => undefined,
-        setComposerText: () => undefined,
-        threadId: "agent-disabled",
-        toggleLocalReference: () => undefined,
-      },
-      visualNavigator: {
-        advancedCommandOpen: false,
-        canStart: false,
-        clearHistory: () => undefined,
-        confirmPendingAction: async () => undefined,
-        history: [],
-        isRefreshingSuggestions: false,
-        intent: "",
-        isRunning: false,
-        lastConfidence: null,
-        lastError: null,
-        lastRationale: null,
-        pendingConfirmation: null,
-        presetGoals: [],
-        recentGoals: [],
-        refreshSuggestions: async () => undefined,
-        rejectPendingAction: () => undefined,
-        runGoal: async () => undefined,
-        selectedGoalIntent: null,
-        setAdvancedCommandOpen: () => undefined,
-        setIntent: () => undefined,
-        startRun: async () => undefined,
-        statusText: null,
-        stopReason: null,
-        stopRun: () => undefined,
-        suggestedGoals: [],
-        suggestionsError: null,
-      },
-      onCompare: async () => undefined,
-      onCreateSummaryDocument: () => undefined,
-      onExtractProcedure: async () => undefined,
-      onGenerateSection: async () => undefined,
-      onGenerateToc: async () => undefined,
-      onLoadTocPatch: async () => undefined,
-      onOpenChange: (open: boolean) => {
-        if (open && canAccessAiAssistant) {
-          requestAiIntent({ type: "open" });
-        }
-      },
-      onSuggestUpdates: async (targetDocumentId: string) => {
-        if (canAccessAiAssistant) {
-          requestAiIntent({ targetDocumentId, type: "suggest-updates" });
-        }
-      },
-      onSummarize: async () => undefined,
-      open: false,
-      procedureResult: null,
-      richTextAvailable,
-      summaryResult: null,
-      tocPreview: null,
-      updateSuggestionPreview: null,
-    };
   const documentSupportRuntimeActive = canAccessPatchReview
     && (documentSupportRuntimeEnabled || (canAccessHistory && historyEnabled));
   const patchReviewDialogProps = {
@@ -2514,7 +2362,7 @@ const Index = () => {
 
       openPatchReview();
     },
-    onRefreshLinkedDocument: activeDoc.workspaceBinding
+    onRefreshLinkedDocument: remoteWorkspaceEnabled && activeDoc.workspaceBinding
       ? () => {
         clearPatchSet();
         handleRefreshWorkspaceDocument(activeDoc.id);
@@ -2525,16 +2373,18 @@ const Index = () => {
     onRetryWorkspaceSync: documentSupportRuntimeState?.retryWorkspaceSync,
     open: canAccessPatchReview ? patchReviewOpen : false,
     patchSet,
-    workspaceLinked: activeDoc.workspaceBinding?.provider === "google_drive",
-    workspaceSyncError: activeDoc.workspaceBinding?.syncError,
+    workspaceLinked: remoteWorkspaceEnabled && activeDoc.workspaceBinding?.provider === "google_drive",
+    workspaceSyncError: remoteWorkspaceEnabled ? activeDoc.workspaceBinding?.syncError : undefined,
     workspaceSyncPending: workspaceSyncing,
-    workspaceSyncWarnings: activeDoc.workspaceBinding?.syncWarnings,
+    workspaceSyncWarnings: remoteWorkspaceEnabled ? activeDoc.workspaceBinding?.syncWarnings : undefined,
   };
   const historySidebarProps = {
     activeDoc,
-    onGenerateTocSuggestion: () => {
-      requestAiIntent({ type: "generate-toc" });
-    },
+    onGenerateTocSuggestion: canAccessAiAssistant && llmFeaturesEnabled
+      ? () => {
+        requestAiIntent({ type: "generate-toc" });
+      }
+      : undefined,
     onRestoreVersionSnapshot: (snapshotId: string) => {
       void restoreVersionSnapshot(snapshotId);
     },
@@ -2543,11 +2393,13 @@ const Index = () => {
     versionHistorySnapshots,
     versionHistorySyncing,
   };
-  const previewTexValidationProps = previewOpen
-    && secondaryConversionsPending
-    && documentPerformanceProfile.kind !== "normal"
-    ? undefined
-    : previewRuntimeState?.texValidationProps;
+  const previewTexValidationProps = remoteTexServiceEnabled
+    ? previewOpen
+      && secondaryConversionsPending
+      && documentPerformanceProfile.kind !== "normal"
+      ? undefined
+      : previewRuntimeState?.texValidationProps
+    : undefined;
   const showRecoveryLoadingScreen = Boolean(isRecovering && documents.length === 0);
   const showRecoveryScreen = Boolean(recoveryFailure && documents.length === 0);
 
@@ -2622,24 +2474,6 @@ const Index = () => {
 
   return (
     <>
-      {canAccessAiAssistant && aiRuntimeEnabled && (
-        <Suspense fallback={null}>
-          <AiAssistantRuntime
-            activeDoc={activeDoc}
-            activeEditor={activeEditor}
-            autoApplyPatchSet={requestPatchSetAutoApply}
-            createDocumentDraft={handleCreateLiveAgentDocumentDraft}
-            createSummaryDocument={handleCreateSummaryDocument}
-            currentRenderableMarkdown={currentRenderableMarkdown}
-            documents={documents}
-            getFreshRenderableMarkdown={getFreshRenderableMarkdown}
-            importWorkspaceDocument={importWorkspaceDocumentById}
-            loadPatchSet={loadPatchSet}
-            openWorkspaceConnection={handleOpenWorkspaceConnection}
-            onStateChange={setAiRuntimeState}
-          />
-        </Suspense>
-      )}
       {documentSupportRuntimeActive && (
         <Suspense fallback={null}>
           <DocumentSupportRuntime
@@ -2667,19 +2501,6 @@ const Index = () => {
           />
         </Suspense>
       )}
-      {workspaceRuntimeEnabled && (
-        <Suspense fallback={null}>
-          <WorkspaceRuntime
-            activeDocId={activeDocId}
-            createDocument={createDocument}
-            documents={documents}
-            importDialogOpen={workspaceImportOpen}
-            onStateChange={setWorkspaceRuntimeState}
-            updateActiveDoc={updateActiveDoc}
-            updateDocument={updateDocument}
-          />
-        </Suspense>
-      )}
       {ioRuntimeEnabled && (
         <Suspense fallback={null}>
           <DocumentIORuntime
@@ -2699,7 +2520,6 @@ const Index = () => {
       )}
       <EditorWorkspace
         activeMode={activeDoc.mode}
-        aiAssistantDialogProps={aiAssistantDialogProps}
         fileInputRef={fileInputRef}
         findReplaceProps={{
           editor: activeEditor,
@@ -2726,15 +2546,15 @@ const Index = () => {
             : undefined,
           onRequestResetDocuments: handleRequestResetDocuments,
           onOpenStructuredModes: canAccessStructuredModes ? enableStructuredModes : undefined,
-          onOpenWorkspaceConnection: handleOpenWorkspaceConnection,
-          onOpenWorkspaceExport: handleOpenWorkspaceExport,
-          onOpenWorkspaceImport: handleOpenWorkspaceImport,
-          onSaveWorkspaceDocument: handleSaveWorkspaceDocument,
-          onOpenShare: handleOpenShare,
+          onOpenWorkspaceConnection: remoteWorkspaceEnabled ? handleOpenWorkspaceConnection : undefined,
+          onOpenWorkspaceExport: remoteWorkspaceEnabled ? handleOpenWorkspaceExport : undefined,
+          onOpenWorkspaceImport: remoteWorkspaceEnabled ? handleOpenWorkspaceImport : undefined,
+          onSaveWorkspaceDocument: remoteWorkspaceEnabled ? handleSaveWorkspaceDocument : undefined,
+          onOpenShare: remoteShareEnabled ? handleOpenShare : undefined,
           onCopyHtml: handleCopyHtml,
           onCopyJson: handleCopyJson,
           onCopyMd: handleCopyMd,
-          onCopyShareLink: handleCopyShareLink,
+          onCopyShareLink: remoteShareEnabled ? handleCopyShareLink : undefined,
           onCopyYaml: handleCopyYaml,
           onFileNameChange: handleFileNameChange,
           onLoad: handleLoad,
@@ -2763,7 +2583,7 @@ const Index = () => {
           showStructuredModeAction: false,
           textStats,
           userProfile,
-          workspaceBinding: activeDoc.workspaceBinding,
+          workspaceBinding: remoteWorkspaceEnabled ? activeDoc.workspaceBinding : undefined,
           workspaceConnected,
           workspaceConnectionPending: workspaceConnecting || workspaceDisconnecting || workspaceAuthLoading,
           workspaceExportEnabled,
@@ -2773,15 +2593,6 @@ const Index = () => {
         }}
         onFileChange={handleFileChange}
         patchReviewDialogProps={patchReviewDialogProps}
-        shareLinkDialogProps={{
-          errorCode: shareLinkInfo.errorCode,
-          link: shareLinkInfo.link,
-          onCopy: () => {
-            void handleCopyShareLink();
-          },
-          onOpenChange: setShareDialogOpen,
-          open: shareDialogOpen,
-        }}
         previewOpen={previewOpen}
         previewProps={{
           editorHtml: currentRenderableHtml,
@@ -2811,31 +2622,37 @@ const Index = () => {
             knowledgePanelResetKey: documentResetVersion,
             knowledgeProps: {
               onDismissSuggestionQueueItem: handleDismissSuggestionQueueItem,
-              onGenerateTocSuggestion: () => {
-                requestAiIntent({ type: "generate-toc" });
-              },
-              onRefreshWorkspaceDocument: handleRefreshWorkspaceDocument,
-              onRescanWorkspaceSources: handleRescanWorkspaceChanges,
+              onGenerateTocSuggestion: canAccessAiAssistant && llmFeaturesEnabled
+                ? () => {
+                  requestAiIntent({ type: "generate-toc" });
+                }
+                : undefined,
+              onRefreshWorkspaceDocument: remoteWorkspaceEnabled ? handleRefreshWorkspaceDocument : undefined,
+              onRescanWorkspaceSources: remoteWorkspaceEnabled ? handleRescanWorkspaceChanges : undefined,
               onOpenSuggestionQueueItem: handleOpenSuggestionQueueItem,
               onRetrySuggestionQueueItem: handleRetrySuggestionQueueItem,
-              onSuggestKnowledgeImpactUpdate: (
-                sourceDocumentId: string,
-                targetDocumentId: string,
-                context?: KnowledgeSuggestionContext,
-              ) => {
-                queueKnowledgeSuggestion({ context, sourceDocumentId, targetDocumentId });
-              },
-              onSuggestKnowledgeUpdates: (documentId: string, context?: KnowledgeSuggestionContext) => {
-                queueKnowledgeSuggestion({
-                  context,
-                  sourceDocumentId: activeDoc.id,
-                  targetDocumentId: documentId,
-                });
-              },
+              onSuggestKnowledgeImpactUpdate: llmFeaturesEnabled
+                ? (
+                  sourceDocumentId: string,
+                  targetDocumentId: string,
+                  context?: KnowledgeSuggestionContext,
+                ) => {
+                  queueKnowledgeSuggestion({ context, sourceDocumentId, targetDocumentId });
+                }
+                : undefined,
+              onSuggestKnowledgeUpdates: llmFeaturesEnabled
+                ? (documentId: string, context?: KnowledgeSuggestionContext) => {
+                  queueKnowledgeSuggestion({
+                    context,
+                    sourceDocumentId: activeDoc.id,
+                    targetDocumentId: documentId,
+                  });
+                }
+                : undefined,
               suggestionQueue: suggestionQueueItems,
-              workspaceChangedSources: remoteChangedSources,
-              workspaceLastRescannedAt,
-              workspaceRescanning: workspaceChangesRescanning || workspaceRefreshingDocument,
+              workspaceChangedSources: remoteWorkspaceEnabled ? remoteChangedSources : [],
+              workspaceLastRescannedAt: remoteWorkspaceEnabled ? workspaceLastRescannedAt : null,
+              workspaceRescanning: remoteWorkspaceEnabled && (workspaceChangesRescanning || workspaceRefreshingDocument),
             },
             onDeleteDoc: handleDeleteDoc,
             onActivateHistory: () => {
@@ -2879,59 +2696,6 @@ const Index = () => {
           },
         }}
       />
-      {workspaceConnectionOpen && (
-        <Suspense fallback={null}>
-          <WorkspaceConnectionDialog
-            errorMessage={workspaceErrorMessage}
-            isConnecting={workspaceConnecting}
-            isDisconnecting={workspaceDisconnecting}
-            onConnect={handleConnectWorkspace}
-            onDisconnect={handleDisconnectWorkspace}
-            onOpenChange={setWorkspaceConnectionOpen}
-            open={workspaceConnectionOpen}
-            session={workspaceSession}
-          />
-        </Suspense>
-      )}
-      {workspaceImportOpen && (
-        <Suspense fallback={null}>
-          <WorkspaceImportDialog
-            errorMessage={workspaceImportErrorMessage}
-            files={workspaceFiles}
-            isImporting={workspaceImporting}
-            isLoading={workspaceFilesLoading}
-            isRefreshing={workspaceFilesRefreshing}
-            onImport={handleImportWorkspaceFile}
-            onOpenChange={setWorkspaceImportOpen}
-            onRefresh={() => {
-              void refetchWorkspaceFiles();
-            }}
-            onSearchChange={setWorkspaceFileQuery}
-            open={workspaceImportOpen}
-            query={workspaceFileQuery}
-          />
-        </Suspense>
-      )}
-      {workspaceExportOpen && (
-        <Suspense fallback={null}>
-          <WorkspaceExportDialog
-            defaultTitle={activeDoc.name}
-            errorMessage={workspaceExportErrorMessage}
-            isExporting={workspaceExporting}
-            onExport={handleExportWorkspaceDocument}
-            onOpenChange={setWorkspaceExportOpen}
-            open={workspaceExportOpen}
-          />
-        </Suspense>
-      )}
-      {canAccessAiAssistant && aiRuntimeState && (
-        <Suspense fallback={null}>
-          <VisualNavigatorOverlay
-            onOpenFullNavigator={() => aiRuntimeState.setAssistantOpen(true)}
-            visualNavigator={aiRuntimeState.visualNavigator}
-          />
-        </Suspense>
-      )}
       <ResetDocumentsDialog
         isSubmitting={isResettingDocuments}
         onConfirm={() => {

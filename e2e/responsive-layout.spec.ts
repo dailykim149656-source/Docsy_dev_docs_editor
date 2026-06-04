@@ -1,7 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const AUTOSAVE_KEY = "docsy-autosave-v2";
+const DOCUMENT_TOOLS_KEY = "docsy:web:document-tools-enabled";
 const UI_LANGUAGE_KEY = "docsy-ui-language";
+const USER_PROFILE_KEY = "docsy:web:user-profile";
 
 type Locale = "en" | "ko";
 
@@ -82,6 +84,8 @@ const seedEditorState = async (page: Page, locale: Locale) => {
     localStorage.clear();
     sessionStorage.clear();
     localStorage.setItem(args.uiLanguageKey, args.locale);
+    localStorage.setItem(args.userProfileKey, "advanced");
+    localStorage.setItem(args.documentToolsKey, "true");
 
     const now = Date.now();
     const documents = [
@@ -139,7 +143,9 @@ const seedEditorState = async (page: Page, locale: Locale) => {
     }));
   }, {
     autosaveKey: AUTOSAVE_KEY,
+    documentToolsKey: DOCUMENT_TOOLS_KEY,
     uiLanguageKey: UI_LANGUAGE_KEY,
+    userProfileKey: USER_PROFILE_KEY,
     locale,
   });
 };
@@ -289,7 +295,7 @@ test.describe("responsive overlap checks", () => {
     await page.goto("/editor?e2e=1", { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("header input").first()).toBeVisible();
-    await page.getByRole("button", { name: /Patch Review|패치 검토/ }).first().click();
+    await page.locator('[data-visual-target="header-open-patch-review"]').first().click();
 
     const dialog = page.getByTestId("patch-review-dialog");
     await expect(dialog).toBeVisible();

@@ -2,7 +2,13 @@
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "0.0.0",
+  "description": "Local-first desktop document editor and public download site.",
+  "author": {
+    "name": "Docsy Maintainers",
+    "email": "dailykim149656-source@users.noreply.github.com"
+  },
   "type": "module",
+  "main": "electron-dist/main.cjs",
   "scripts": {
     "ai:server": "node --env-file-if-exists=.env.local --import tsx server/aiServer.ts",
     "bundle:readme-docs": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-readme-bundle.ps1",
@@ -13,6 +19,11 @@
     "build:dev": "vite build --mode development",
     "capture:marketing": "node scripts/capture-marketing-surfaces.mjs",
     "check:public-deploy": "node scripts/validate-public-deploy-config.mjs",
+    "desktop:dev": "node scripts/electron-dev.mjs",
+    "desktop:dist": "npm run build && npm run electron:build && electron-builder --publish never --config.win.signAndEditExecutable=false",
+    "desktop:dist:dir": "npm run build && npm run electron:build && electron-builder --dir --publish never --config.win.signAndEditExecutable=false",
+    "electron:build": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --target=node22 --outdir=electron-dist --out-extension:.js=.cjs --external:electron",
+    "electron:start": "npm run electron:build && electron .",
     "lint": "eslint .",
     "measure:release-closeout": "node scripts/measure-release-closeout-performance.mjs",
     "monitor:gcp:cloud-run": "node scripts/gcp/apply-cloud-run-monitoring.mjs",
@@ -21,12 +32,14 @@
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "tex:server": "node --env-file-if-exists=.env.local --import tsx server/texService.ts",
-    "typecheck:server": "tsc -p tsconfig.server.json --noEmit"
+    "typecheck": "npm run typecheck:app && npm run typecheck:server && npm run typecheck:electron",
+    "typecheck:app": "tsc -p tsconfig.app.json --noEmit",
+    "typecheck:electron": "tsc -p tsconfig.electron.json --noEmit",
+    "typecheck:server": "tsc -p tsconfig.server.json --noEmit",
+    "verify:desktop-first-screen": "node scripts/smoke-desktop-first-screen.mjs",
+    "verify:desktop-package": "node scripts/verify-desktop-package.mjs"
   },
   "dependencies": {
-    "@google-cloud/storage": "^7.17.2",
-    "@google-cloud/tasks": "^5.5.0",
-    "@google-cloud/firestore": "^8.3.0",
     "@google/genai": "^1.44.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
@@ -115,7 +128,6 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "esbuild": "^0.25.10",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.55.0",
     "@tailwindcss/typography": "^0.5.16",
@@ -126,6 +138,9 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.25.10",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -137,5 +152,41 @@
     "typescript-eslint": "^8.38.0",
     "vite": "5.4.21",
     "vitest": "^3.2.4"
+  },
+  "build": {
+    "appId": "dev.docsy.editor",
+    "productName": "Docsy",
+    "artifactName": "Docsy-${os}-${arch}.${ext}",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-dist/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "category": "Office",
+      "maintainer": "dailykim149656-source@users.noreply.github.com",
+      "artifactName": "Docsy-linux-x64.${ext}",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
   }
 }

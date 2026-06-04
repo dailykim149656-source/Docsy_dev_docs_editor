@@ -10,7 +10,7 @@ vi.mock("../../server/modules/workspace/repository", () => ({
     saveAuthState: (...args: Parameters<typeof saveAuthStateMock>) => saveAuthStateMock(...args),
     upsertConnection: vi.fn(),
   }),
-  resolveWorkspaceRepositoryBackend: () => "firestore",
+  resolveWorkspaceRepositoryBackend: () => "file",
 }));
 
 const ORIGINAL_ENV = { ...process.env };

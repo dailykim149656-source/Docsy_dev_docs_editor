@@ -147,11 +147,13 @@ const FileSidebarKnowledgePanels = ({
         impact={knowledgeActiveImpact}
         onOpenDocument={openKnowledgeDocumentById}
         onOpenGraph={openKnowledgeGraph}
-        onSuggestUpdates={(documentId) => onSuggestKnowledgeUpdates(documentId, {
-          queueContext: "impact",
-          sourceDocumentId: activeDocId,
-          sourceDocumentName: activeDoc.name,
-        })}
+        onSuggestUpdates={onSuggestKnowledgeUpdates
+          ? (documentId) => onSuggestKnowledgeUpdates(documentId, {
+            queueContext: "impact",
+            sourceDocumentId: activeDocId,
+            sourceDocumentName: activeDoc.name,
+          })
+          : undefined}
         suggestableDocumentIds={suggestableKnowledgeDocumentIds}
       />
       <WorkspaceGraphPanel
@@ -166,25 +168,27 @@ const FileSidebarKnowledgePanels = ({
         issues={knowledgeConsistencyIssues}
         onOpenDocument={openKnowledgeDocumentById}
         onOpenGraph={openKnowledgeGraph}
-        onSuggestUpdates={({ issueId, issueKind, issuePriority, issueReason, sourceDocumentId, sourceDocumentName, targetDocumentId, targetDocumentName }) => {
-          const context = {
-            issueId,
-            issueKind,
-            issuePriority,
-            issueReason,
-            queueContext: "consistency" as const,
-            sourceDocumentId,
-            sourceDocumentName,
-            targetDocumentName,
-          };
+        onSuggestUpdates={onSuggestKnowledgeUpdates && onSuggestKnowledgeImpactUpdate
+          ? ({ issueId, issueKind, issuePriority, issueReason, sourceDocumentId, sourceDocumentName, targetDocumentId, targetDocumentName }) => {
+            const context = {
+              issueId,
+              issueKind,
+              issuePriority,
+              issueReason,
+              queueContext: "consistency" as const,
+              sourceDocumentId,
+              sourceDocumentName,
+              targetDocumentName,
+            };
 
-          if (sourceDocumentId === activeDocId) {
-            onSuggestKnowledgeUpdates(targetDocumentId, context);
-            return;
+            if (sourceDocumentId === activeDocId) {
+              onSuggestKnowledgeUpdates(targetDocumentId, context);
+              return;
+            }
+
+            onSuggestKnowledgeImpactUpdate(sourceDocumentId, targetDocumentId, context);
           }
-
-          onSuggestKnowledgeImpactUpdate(sourceDocumentId, targetDocumentId, context);
-        }}
+          : undefined}
         suggestableDocumentIds={suggestableKnowledgeDocumentIds}
       />
       <ChangeMonitoringPanel
@@ -199,12 +203,14 @@ const FileSidebarKnowledgePanels = ({
           void rescanKnowledgeSources();
           void onRescanWorkspaceSources?.();
         }}
-        onSuggestUpdates={(sourceDocumentId, targetDocumentId) => {
-          onSuggestKnowledgeImpactUpdate(sourceDocumentId, targetDocumentId, {
-            queueContext: "change",
-            sourceDocumentId,
-          });
-        }}
+        onSuggestUpdates={onSuggestKnowledgeImpactUpdate
+          ? (sourceDocumentId, targetDocumentId) => {
+            onSuggestKnowledgeImpactUpdate(sourceDocumentId, targetDocumentId, {
+              queueContext: "change",
+              sourceDocumentId,
+            });
+          }
+          : undefined}
       />
       <SuggestionQueuePanel
         entries={suggestionQueue}

@@ -19,49 +19,7 @@ steps:
     args:
       - -ceu
       - |
-        if [ -z "${_TEX_PREVIEW_BUCKET}" ] || [ "${_TEX_PREVIEW_BUCKET}" = "__SET_ME__" ]; then
-          echo "_TEX_PREVIEW_BUCKET must be configured for Cloud Run deployments." >&2
-          exit 1
-        fi
-
-        if [ -z "${_TEX_TASK_QUEUE}" ] || [ -z "${_TEX_TASK_LOCATION}" ]; then
-          echo "Cloud Tasks queue is not configured. TeX service will use local background processing."
-        elif ! gcloud tasks queues describe "${_TEX_TASK_QUEUE}" --location="${_TEX_TASK_LOCATION}" >/dev/null 2>&1; then
-          gcloud tasks queues create "${_TEX_TASK_QUEUE}" --location="${_TEX_TASK_LOCATION}"
-        fi
-
-        cat > /workspace/tex-worker-env.yaml <<EOF
-        TEX_COMPILE_TIMEOUT_MS: "${_TEX_COMPILE_TIMEOUT_MS}"
-        TEX_MAX_SOURCE_BYTES: "${_TEX_MAX_SOURCE_BYTES}"
-        TEX_MAX_REQUEST_BYTES: "${_TEX_MAX_REQUEST_BYTES}"
-        TEX_MAX_CONCURRENCY: "${_TEX_MAX_CONCURRENCY}"
-        TEX_ALLOW_ALL_PACKAGES: "${_TEX_ALLOW_ALL_PACKAGES}"
-        TEX_ALLOW_RAW_DOCUMENT: "${_TEX_ALLOW_RAW_DOCUMENT}"
-        TEX_ALLOW_RESTRICTED_COMMANDS: "${_TEX_ALLOW_RESTRICTED_COMMANDS}"
-        TEX_ALLOWED_PACKAGES: "${_TEX_ALLOWED_PACKAGES}"
-        TEX_PREVIEW_BUCKET: "${_TEX_PREVIEW_BUCKET}"
-        TEX_PREVIEW_URL_TTL_SECONDS: "${_TEX_PREVIEW_URL_TTL_SECONDS}"
-        NODE_OPTIONS: "${_WORKER_NODE_OPTIONS}"
-        EOF
-
-        gcloud run deploy "${_WORKER_SERVICE_NAME}" \
-          --image="${_IMAGE_URI}" \
-          --region="${_REGION}" \
-          --platform=managed \
-          --allow-unauthenticated \
-          --port=8082 \
-          --command=node \
-          --args=server-dist/texWorker.js \
-          --memory="${_WORKER_RUN_MEMORY}" \
-          --cpu="${_WORKER_RUN_CPU}" \
-          --concurrency="${_WORKER_RUN_CONCURRENCY}" \
-          --max-instances="${_WORKER_RUN_MAX_INSTANCES}" \
-          --ingress=all \
-          --service-account="${_RUN_SERVICE_ACCOUNT}" \
-          --env-vars-file=/workspace/tex-worker-env.yaml \
-          --update-secrets="TEX_SERVICE_AUTH_TOKEN=${_TEX_SERVICE_AUTH_TOKEN_SECRET}:latest"
-
-        WORKER_URL="$(gcloud run services describe "${_WORKER_SERVICE_NAME}" --region="${_REGION}" --format='value(status.url)')"
+        echo "TeX service uses local job processing and local artifact URLs."
 
         cat > /workspace/tex-service-env.yaml <<EOF
         TEX_COMPILE_TIMEOUT_MS: "${_TEX_COMPILE_TIMEOUT_MS}"
@@ -72,11 +30,8 @@ steps:
         TEX_ALLOW_RAW_DOCUMENT: "${_TEX_ALLOW_RAW_DOCUMENT}"
         TEX_ALLOW_RESTRICTED_COMMANDS: "${_TEX_ALLOW_RESTRICTED_COMMANDS}"
         TEX_ALLOWED_PACKAGES: "${_TEX_ALLOWED_PACKAGES}"
-        TEX_PREVIEW_BUCKET: "${_TEX_PREVIEW_BUCKET}"
+        TEX_PREVIEW_PUBLIC_BASE_URL: "${_TEX_PREVIEW_PUBLIC_BASE_URL}"
         TEX_PREVIEW_URL_TTL_SECONDS: "${_TEX_PREVIEW_URL_TTL_SECONDS}"
-        TEX_TASK_QUEUE: "${_TEX_TASK_QUEUE}"
-        TEX_TASK_LOCATION: "${_TEX_TASK_LOCATION}"
-        TEX_JOB_WORKER_URL: "$${WORKER_URL}"
         NODE_OPTIONS: "${_NODE_OPTIONS}"
         EOF
 
@@ -97,15 +52,10 @@ steps:
 substitutions:
   _REGION: asia-northeast3
   _SERVICE_NAME: docsy-tex
-  _WORKER_SERVICE_NAME: docsy-tex-worker
   _RUN_MEMORY: 4Gi
   _RUN_CPU: "2"
   _RUN_CONCURRENCY: "1"
   _RUN_MAX_INSTANCES: "5"
-  _WORKER_RUN_MEMORY: 4Gi
-  _WORKER_RUN_CPU: "2"
-  _WORKER_RUN_CONCURRENCY: "1"
-  _WORKER_RUN_MAX_INSTANCES: "5"
   _TEX_COMPILE_TIMEOUT_MS: "15000"
   _TEX_MAX_SOURCE_BYTES: "300000"
   _TEX_MAX_REQUEST_BYTES: "300000"
@@ -114,13 +64,10 @@ substitutions:
   _TEX_ALLOW_RAW_DOCUMENT: "true"
   _TEX_ALLOW_RESTRICTED_COMMANDS: "false"
   _TEX_ALLOWED_PACKAGES: "amsmath,amssymb,amsthm,array,booktabs,caption,enumitem,etoolbox,fancyhdr,float,fontspec,geometry,graphicx,hyperref,inputenc,latexsym,listings,longtable,makecell,mathtools,multirow,setspace,soul,tabularx,tcolorbox,titlesec,ulem,xcolor,xeCJK"
-  _TEX_PREVIEW_BUCKET: "__SET_ME__"
+  _TEX_PREVIEW_PUBLIC_BASE_URL: ""
   _TEX_PREVIEW_URL_TTL_SECONDS: "900"
-  _TEX_TASK_QUEUE: tex-compile
-  _TEX_TASK_LOCATION: asia-northeast3
   _TEX_SERVICE_AUTH_TOKEN_SECRET: tex-service-auth-token
   _NODE_OPTIONS: "--max-old-space-size=512"
-  _WORKER_NODE_OPTIONS: "--max-old-space-size=512"
   _RUN_SERVICE_ACCOUNT: "399359781191-compute@developer.gserviceaccount.com"
 images:
   - ${_IMAGE_URI}

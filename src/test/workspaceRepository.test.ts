@@ -1,14 +1,13 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertSafeWorkspaceRepositoryPath,
   getWorkspaceRepository,
   resetWorkspaceRepositoryForTests,
   resolveWorkspaceRepositoryBackend,
   resolveWorkspaceRepositoryFilePath,
-  stripUndefinedDeep,
 } from "../../server/modules/workspace/repository";
 
 const ORIGINAL_ENV = {
@@ -24,15 +23,26 @@ const ORIGINAL_ENV = {
 
 let tempDirectoryPath: string | null = null;
 
+const restoreEnv = (key: keyof typeof ORIGINAL_ENV) => {
+  const value = ORIGINAL_ENV[key];
+
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+};
+
 afterEach(async () => {
-  process.env.CLOUD_RUN_JOB = ORIGINAL_ENV.CLOUD_RUN_JOB;
-  process.env.K_REVISION = ORIGINAL_ENV.K_REVISION;
-  process.env.K_SERVICE = ORIGINAL_ENV.K_SERVICE;
-  process.env.NODE_ENV = ORIGINAL_ENV.NODE_ENV;
-  process.env.VITEST = ORIGINAL_ENV.VITEST;
-  process.env.WORKSPACE_DB_PATH = ORIGINAL_ENV.WORKSPACE_DB_PATH;
-  process.env.WORKSPACE_REPOSITORY_BACKEND = ORIGINAL_ENV.WORKSPACE_REPOSITORY_BACKEND;
-  process.env.WORKSPACE_STATE_PATH = ORIGINAL_ENV.WORKSPACE_STATE_PATH;
+  restoreEnv("CLOUD_RUN_JOB");
+  restoreEnv("K_REVISION");
+  restoreEnv("K_SERVICE");
+  restoreEnv("NODE_ENV");
+  restoreEnv("VITEST");
+  restoreEnv("WORKSPACE_DB_PATH");
+  restoreEnv("WORKSPACE_REPOSITORY_BACKEND");
+  restoreEnv("WORKSPACE_STATE_PATH");
 
   if (tempDirectoryPath) {
     await rm(tempDirectoryPath, { force: true, recursive: true });
@@ -60,7 +70,9 @@ describe("workspace repository hardening", () => {
     expect(cloudRunPath).toBe(path.resolve("F:\\Docsy-document_editor\\markdown-muse", "/tmp/docsy-workspace-state.json"));
   });
 
-  it("defaults to firestore on Cloud Run and file locally", () => {
+  it("uses the local file backend even when Cloud Run or legacy Firestore config is present", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
     expect(resolveWorkspaceRepositoryBackend({
       K_SERVICE: "",
       WORKSPACE_REPOSITORY_BACKEND: "",
@@ -69,25 +81,14 @@ describe("workspace repository hardening", () => {
     expect(resolveWorkspaceRepositoryBackend({
       K_SERVICE: "docsy",
       WORKSPACE_REPOSITORY_BACKEND: "",
-    } as NodeJS.ProcessEnv)).toBe("firestore");
-  });
+    } as NodeJS.ProcessEnv)).toBe("file");
 
-  it("removes nested undefined fields before Firestore writes", () => {
-    expect(stripUndefinedDeep({
-      a: 1,
-      b: undefined,
-      c: {
-        d: "value",
-        e: undefined,
-      },
-      f: [1, undefined, { g: undefined, h: "kept" }],
-    })).toEqual({
-      a: 1,
-      c: {
-        d: "value",
-      },
-      f: [1, { h: "kept" }],
-    });
+    expect(resolveWorkspaceRepositoryBackend({
+      K_SERVICE: "docsy",
+      WORKSPACE_REPOSITORY_BACKEND: "firestore",
+    } as NodeJS.ProcessEnv)).toBe("file");
+
+    warnSpy.mockRestore();
   });
 
   it("rejects repo-local workspace state paths outside tests", () => {

@@ -31,7 +31,7 @@ interface ConsistencyIssuesPanelProps {
     sourceDocumentId: string;
     targetDocumentId: string;
   }) => void;
-  onSuggestUpdates: (request: ConsistencySuggestionRequest) => Promise<unknown> | unknown;
+  onSuggestUpdates?: (request: ConsistencySuggestionRequest) => Promise<unknown> | unknown;
   suggestableDocumentIds: string[];
 }
 
@@ -113,6 +113,10 @@ const ConsistencyIssuesPanel = ({
   );
 
   const handleSuggestUpdates = (issue: KnowledgeConsistencyIssue) => {
+    if (!onSuggestUpdates) {
+      return;
+    }
+
     setSuggestingIssueId(issue.id);
     const request: ConsistencySuggestionRequest = {
       issueId: issue.id,
@@ -156,7 +160,7 @@ const ConsistencyIssuesPanel = ({
       ) : (
         <div className="space-y-2">
           {orderedIssues.map((issue) => {
-            const canSuggest = suggestableSet.has(issue.relatedDocumentId);
+            const canSuggest = Boolean(onSuggestUpdates) && suggestableSet.has(issue.relatedDocumentId);
             const isExpanded = expandedIssueId === issue.id;
             const isSuggesting = suggestingIssueId === issue.id;
             const previewDeltas = issue.comparison.deltas.slice(0, 3);
@@ -270,7 +274,7 @@ const ConsistencyIssuesPanel = ({
                     </Button>
                   )}
                 </div>
-                {!canSuggest && (
+                {onSuggestUpdates && !canSuggest && (
                   <div className="mt-2 text-[11px] text-muted-foreground">
                     {t("knowledge.consistencySuggestionUnavailable")}
                   </div>

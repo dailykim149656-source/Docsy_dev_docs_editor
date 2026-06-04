@@ -1,0 +1,16 @@
+/release
+/dist
+/electron-dist
+/server-dist
+/node_modules
+/.omx
+/.playwright-cli
+/test-results
+/output
+*.har
+*.log
+*.err
+*.out
+.env
+.env.*
+!.env.example

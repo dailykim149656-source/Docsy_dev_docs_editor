@@ -52,12 +52,12 @@ interface EditorHeaderProps {
   importState: DocumentImportState;
   onToggleTheme: () => void;
   onSaveDocsy: () => void;
-  onOpenShare: () => void;
+  onOpenShare?: () => void;
   onCopyMd: () => void;
   onCopyHtml: () => void;
   onCopyJson: () => void;
   onCopyYaml: () => void;
-  onCopyShareLink: () => void;
+  onCopyShareLink?: () => void;
   onSaveMd: () => void;
   onSaveTex: () => void;
   onSaveHtml: () => void;
@@ -469,15 +469,19 @@ const EditorHeader = ({
                 <FileDown className="h-4 w-4" />
                 Docsy (.docsy)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onOpenShare} className="gap-2 text-sm">
-                <QrCode className="h-4 w-4" />
-                {t("header.clipboard.share")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={onCopyShareLink} className="gap-2 text-sm">
-                <Link2 className="h-4 w-4" />
-                {t("header.clipboard.shareLink")}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {onOpenShare && (
+                <DropdownMenuItem onClick={onOpenShare} className="gap-2 text-sm">
+                  <QrCode className="h-4 w-4" />
+                  {t("header.clipboard.share")}
+                </DropdownMenuItem>
+              )}
+              {onCopyShareLink && (
+                <DropdownMenuItem onClick={onCopyShareLink} className="gap-2 text-sm">
+                  <Link2 className="h-4 w-4" />
+                  {t("header.clipboard.shareLink")}
+                </DropdownMenuItem>
+              )}
+              {(onOpenShare || onCopyShareLink) && <DropdownMenuSeparator />}
               {(mode === "markdown" || mode === "latex" || mode === "html") && (
                 <>
                   <DropdownMenuItem onClick={onCopyMd} className="gap-2 text-sm">

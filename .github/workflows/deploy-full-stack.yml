@@ -701,6 +701,7 @@ jobs:
           printf "VITE_APP_PROFILE=web\nVITE_AI_API_BASE_URL=%s\nVITE_APP_BUILD_ID=%s\n" "${AI_API_BASE_URL}" "${FRONTEND_BUILD_ID}" > .env.web.local
 
           npm ci
+          npm run typecheck:app
           npm run build:web
 
       - name: Verify frontend file

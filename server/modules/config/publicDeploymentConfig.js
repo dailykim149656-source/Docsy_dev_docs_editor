@@ -205,6 +205,10 @@ const pushDynamicDnsMessage = ({ bucket, fieldName, hostname, publishingStatus }
 
 const normalizeWorkspaceRepositoryBackend = (value) => {
   const normalized = value?.trim().toLowerCase() || "";
+  if (normalized === "local") {
+    return "file";
+  }
+
   return normalized === "file" || normalized === "firestore" ? normalized : "";
 };
 
@@ -227,7 +231,8 @@ export const readPublicDeploymentConfig = (env = process.env) => {
   const browserApiBaseUrl = normalizeConfiguredOrigin(env.VITE_AI_API_BASE_URL);
   const frontendOrigin = normalizeConfiguredOrigin(env.WORKSPACE_FRONTEND_ORIGIN);
   const googleClientId = env.GOOGLE_CLIENT_ID?.trim() || "";
-  const workspaceRepositoryBackend = normalizeWorkspaceRepositoryBackend(env.WORKSPACE_REPOSITORY_BACKEND);
+  const explicitWorkspaceRepositoryBackend = normalizeWorkspaceRepositoryBackend(env.WORKSPACE_REPOSITORY_BACKEND);
+  const workspaceRepositoryBackend = explicitWorkspaceRepositoryBackend || "file";
   const redirectUri = normalizeConfiguredGoogleOAuthRedirectUri(
     env.GOOGLE_OAUTH_REDIRECT_URI,
     frontendOrigin,
@@ -260,7 +265,7 @@ export const readPublicDeploymentConfig = (env = process.env) => {
     explicitScopes,
     frontendOrigin,
     googleClientId,
-    hasExplicitWorkspaceRepositoryBackend: Boolean(workspaceRepositoryBackend),
+    hasExplicitWorkspaceRepositoryBackend: Boolean(explicitWorkspaceRepositoryBackend),
     hasBrowserApiBaseUrl: Boolean(env.VITE_AI_API_BASE_URL?.trim()),
     oauthEnabled: Boolean(googleClientId || redirectUri || frontendOrigin),
     publishingStatus,
@@ -506,12 +511,12 @@ export const validatePublicDeploymentConfig = (config, options = {}) => {
     notes.push(`Public deploy expectation pins the hosted frontend origin to ${expectedOrigin}.`);
   }
 
-  if (hasNonLocalDeploymentTarget && config.oauthEnabled) {
-    if (config.workspaceRepositoryBackend === "file") {
-      errors.push("WORKSPACE_REPOSITORY_BACKEND=file is not supported for deployed Google Workspace OAuth. Cloud Run instances do not share local filesystem state; use Firestore instead.");
-    } else {
-      notes.push("Deployed Google Workspace state should use the Firestore repository backend. Enable firestore.googleapis.com and create a Firestore database in the target GCP project before rollout.");
-    }
+  if (config.workspaceRepositoryBackend === "firestore") {
+    errors.push("WORKSPACE_REPOSITORY_BACKEND=firestore is no longer supported. Docsy now uses the local file-backed workspace repository; set WORKSPACE_REPOSITORY_BACKEND=file or leave it unset.");
+  }
+
+  if (hasNonLocalDeploymentTarget && config.oauthEnabled && config.workspaceRepositoryBackend !== "firestore") {
+    notes.push("Google Workspace state uses the local file-backed repository. Set WORKSPACE_STATE_PATH or WORKSPACE_DB_PATH to a writable local persistence path for this runtime.");
   }
 
   if (frontendUrl && redirectUrl) {

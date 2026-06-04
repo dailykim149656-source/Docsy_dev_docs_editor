@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { useTexAutoFix } from "@/hooks/useTexAutoFix";
 import { useTexValidation } from "@/hooks/useTexValidation";
+import { featureFlags } from "@/lib/appProfile";
 import type { DocumentData, DocumentVersionSnapshotMetadata } from "@/types/document";
 import type { DocumentPatchSet } from "@/types/documentPatch";
 
@@ -52,34 +52,24 @@ const PreviewRuntime = ({
     onPdfExported: () => {
       void onVersionSnapshot(activeDoc, { exportFormat: "XeLaTeX PDF" });
     },
+    serviceEnabled: featureFlags.remoteTexServiceEnabled,
   });
-  const {
-    generatePatchSet: generateTexAutoFixPatchSet,
-    isFixing: isFixingTexAutoFix,
-  } = useTexAutoFix({
-    diagnostics: texValidation.diagnostics,
-    documentId: activeDoc.id,
-    documentName: activeDoc.name,
-    latexSource: activeDoc.content,
-    logSummary: texValidation.logSummary,
-    sourceType: texValidation.sourceType,
-  });
-  const canAiFixTex = texValidation.validationEnabled
+  const canAiFixTex = featureFlags.llmFeaturesEnabled
+    && texValidation.validationEnabled
     && texValidation.status === "error"
     && texValidation.sourceType === "raw-latex"
     && texValidation.diagnostics.length > 0;
 
   const handleOpenTexAutoFixReview = useCallback(async () => {
-    const nextPatchSet = await generateTexAutoFixPatchSet();
-    onLoadPatchSet(nextPatchSet);
-  }, [generateTexAutoFixPatchSet, onLoadPatchSet]);
+    void onLoadPatchSet;
+  }, [onLoadPatchSet]);
 
   const texValidationProps = useMemo(() => ({
     canAiFix: canAiFixTex,
     compileMs: texValidation.compileMs,
     diagnostics: texValidation.diagnostics,
     health: texValidation.health,
-    isAiFixing: isFixingTexAutoFix,
+    isAiFixing: false,
     isExportingPdf: texValidation.isExportingPdf,
     lastValidatedAt: texValidation.lastValidatedAt,
     latexSource: activeDoc.mode === "latex" ? activeDoc.content : currentRenderableLatexDocument,
@@ -106,7 +96,6 @@ const PreviewRuntime = ({
     canAiFixTex,
     currentRenderableLatexDocument,
     handleOpenTexAutoFixReview,
-    isFixingTexAutoFix,
     onJumpToLatexLine,
     texValidation.compileMs,
     texValidation.diagnostics,

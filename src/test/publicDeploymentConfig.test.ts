@@ -155,7 +155,7 @@ describe("publicDeploymentConfig", () => {
     const validation = validatePublicDeploymentConfig(config);
 
     expect(validation.errors).toEqual([]);
-    expect(validation.notes.some((note) => note.includes("Firestore repository backend"))).toBe(true);
+    expect(validation.notes.some((note) => note.includes("local file-backed repository"))).toBe(true);
     expect(validation.notes.some((note) => note.includes("GOOGLE_OAUTH_REDIRECT_URI matches WORKSPACE_FRONTEND_ORIGIN"))).toBe(true);
     expect(validation.notes.some((note) => note.includes("VITE_AI_API_BASE_URL matches WORKSPACE_FRONTEND_ORIGIN"))).toBe(true);
   });
@@ -196,18 +196,26 @@ describe("publicDeploymentConfig", () => {
     expect(validation.notes.some((note) => note.includes("Public deploy expectation pins the hosted frontend origin"))).toBe(true);
   });
 
-  it("rejects deployed OAuth config when the file repository backend is forced", () => {
+  it("rejects deployed OAuth config when the legacy Firestore repository backend is forced", () => {
     const config = readPublicDeploymentConfig({
       AI_ALLOWED_ORIGIN: "https://app.docsy.dev",
       GOOGLE_CLIENT_ID: "client-id",
       GOOGLE_OAUTH_PUBLISHING_STATUS: "testing",
       GOOGLE_OAUTH_REDIRECT_URI: "https://app.docsy.dev/api/auth/google/callback",
       WORKSPACE_FRONTEND_ORIGIN: "https://app.docsy.dev",
-      WORKSPACE_REPOSITORY_BACKEND: "file",
+      WORKSPACE_REPOSITORY_BACKEND: "firestore",
     });
     const validation = validatePublicDeploymentConfig(config);
 
-    expect(validation.errors.some((error) => error.includes("WORKSPACE_REPOSITORY_BACKEND=file"))).toBe(true);
+    expect(validation.errors.some((error) => error.includes("WORKSPACE_REPOSITORY_BACKEND=firestore"))).toBe(true);
+  });
+
+  it("normalizes local repository aliases to the file backend", () => {
+    const config = readPublicDeploymentConfig({
+      WORKSPACE_REPOSITORY_BACKEND: "local",
+    });
+
+    expect(config.workspaceRepositoryBackend).toBe("file");
   });
 
   it("rejects allowed origins that are not origin-only URLs", () => {

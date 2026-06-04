@@ -42,7 +42,7 @@ vi.mock("../../server/modules/workspace/repository", () => ({
     saveAuthState: vi.fn(),
     upsertConnection: (...args: Parameters<typeof upsertConnectionMock>) => upsertConnectionMock(...args),
   }),
-  resolveWorkspaceRepositoryBackend: () => "firestore",
+  resolveWorkspaceRepositoryBackend: () => "file",
 }));
 
 describe("auth callback session rotation", () => {

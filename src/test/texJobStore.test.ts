@@ -9,6 +9,17 @@ const ORIGINAL_ENV = {
   WORKSPACE_REPOSITORY_BACKEND: process.env.WORKSPACE_REPOSITORY_BACKEND,
 };
 
+const restoreEnv = (key: keyof typeof ORIGINAL_ENV) => {
+  const value = ORIGINAL_ENV[key];
+
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+};
+
 beforeEach(() => {
   vi.useFakeTimers();
   process.env.GOOGLE_CLOUD_PROJECT = "";
@@ -21,15 +32,31 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
-  process.env.GOOGLE_CLOUD_PROJECT = ORIGINAL_ENV.GOOGLE_CLOUD_PROJECT;
-  process.env.K_SERVICE = ORIGINAL_ENV.K_SERVICE;
-  process.env.K_REVISION = ORIGINAL_ENV.K_REVISION;
-  process.env.TEX_JOB_STATE_PATH = ORIGINAL_ENV.TEX_JOB_STATE_PATH;
-  process.env.WORKSPACE_REPOSITORY_BACKEND = ORIGINAL_ENV.WORKSPACE_REPOSITORY_BACKEND;
+  restoreEnv("GOOGLE_CLOUD_PROJECT");
+  restoreEnv("K_SERVICE");
+  restoreEnv("K_REVISION");
+  restoreEnv("TEX_JOB_STATE_PATH");
+  restoreEnv("WORKSPACE_REPOSITORY_BACKEND");
   resetTexJobStoreForTests();
 });
 
 describe("tex job store", () => {
+  it("uses the local file store when legacy Firestore settings are present", async () => {
+    process.env.GOOGLE_CLOUD_PROJECT = "legacy-cloud-project";
+    process.env.K_SERVICE = "docsy-tex";
+    process.env.WORKSPACE_REPOSITORY_BACKEND = "firestore";
+    resetTexJobStoreForTests();
+
+    const store = getTexJobStore();
+    const created = await store.createJob({
+      latex: "\\section{Local}",
+      mode: "preview",
+      sourceType: "raw-latex",
+    });
+
+    expect(await store.getJob(created.jobId)).toEqual(created);
+  });
+
   it("creates, claims, and completes preview jobs", async () => {
     const store = getTexJobStore();
     const created = await store.createJob({

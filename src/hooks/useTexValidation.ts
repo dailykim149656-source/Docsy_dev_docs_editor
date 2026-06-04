@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { exportTexPdf, getTexHealth, getTexJob, previewTex, validateTex } from "@/lib/ai/texClient";
 import { useI18n } from "@/i18n/useI18n";
 import type { EditorMode } from "@/types/document";
 import type {
@@ -18,6 +17,7 @@ interface UseTexValidationOptions {
   latexSource: string;
   mode: EditorMode;
   onPdfExported?: () => void;
+  serviceEnabled?: boolean;
 }
 
 interface TexValidationState {
@@ -33,7 +33,6 @@ interface TexValidationState {
 
 const DEBOUNCE_MS = 1500;
 const PREVIEW_IDLE_MS = 5000;
-const JOB_POLL_INTERVAL_MS = 2000;
 
 const createInitialState = (): TexValidationState => ({
   compileMs: null,
@@ -86,6 +85,7 @@ export const useTexValidation = ({
   latexSource,
   mode,
   onPdfExported,
+  serviceEnabled = true,
 }: UseTexValidationOptions) => {
   const { t } = useI18n();
   const [state, setState] = useState<TexValidationState>(createInitialState);
@@ -98,7 +98,7 @@ export const useTexValidation = ({
   const lastPreviewExpiresAtRef = useRef<number | null>(null);
   const healthLoadedRef = useRef(false);
   const healthRef = useRef<TexHealthResponse | null>(null);
-  const validationEnabled = mode === "markdown" || mode === "latex" || mode === "html";
+  const validationEnabled = false;
   const sourceType = useMemo<TexSourceType>(
     () => (mode === "latex" ? "raw-latex" : "generated-latex"),
     [mode],
@@ -146,58 +146,27 @@ export const useTexValidation = ({
     });
   }, []);
 
-  const pollTexJob = useCallback(async (jobId: string, signal: AbortSignal) => {
-    while (true) {
-      if (signal.aborted) {
-        throw new DOMException("Aborted", "AbortError");
-      }
-
-      const job = await getTexJob(jobId, { signal });
-
-      if (job.status === "queued" || job.status === "running") {
-        await waitFor(JOB_POLL_INTERVAL_MS, signal);
-        continue;
-      }
-
-      return job;
-    }
-  }, []);
-
   const ensureTexHealth = useCallback(async () => {
     if (healthLoadedRef.current) {
       return healthRef.current;
     }
 
-    try {
-      const health = await getTexHealth();
-      healthLoadedRef.current = true;
-      healthRef.current = health;
-      setState((current) => ({
-        ...current,
-        health,
-        status: !validationEnabled
-          ? "disabled"
-          : current.status,
-      }));
-      return health;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to reach the XeLaTeX validation service.";
-      healthRef.current = {
-        configured: false,
-        engine: "xelatex",
-        ok: false,
-      };
-      setState((current) => ({
-        ...current,
-        compileMs: null,
-        diagnostics: [],
-        health: healthRef.current,
-        logSummary: message,
-        status: "error",
-      }));
-      return healthRef.current;
-    }
-  }, [validationEnabled]);
+    healthLoadedRef.current = true;
+    healthRef.current = {
+      configured: false,
+      engine: "xelatex",
+      ok: false,
+    };
+    setState((current) => ({
+      ...current,
+      compileMs: null,
+      diagnostics: [],
+      health: healthRef.current,
+      logSummary: "",
+      status: "disabled",
+    }));
+    return healthRef.current;
+  }, []);
 
   const runValidation = useCallback(async (reason: "auto" | "manual") => {
     if (!validationEnabled || !latexSource.trim()) {
@@ -209,120 +178,16 @@ export const useTexValidation = ({
         logSummary: "",
         status: validationEnabled ? "idle" : "disabled",
       }));
-      return;
-    }
-
-    const health = await ensureTexHealth();
-
-    if (!health?.ok) {
-      if (reason === "manual") {
+      if (reason === "manual" && serviceEnabled) {
         toast.error(t("texValidation.unavailable"));
       }
       return;
     }
-
-    const contentHash = await hashLatexSource(latexSource);
-    if (reason === "auto" && lastValidatedHashRef.current === contentHash) {
-      return;
-    }
-
-    validationAbortControllerRef.current?.abort();
-    const nextAbortController = new AbortController();
-    validationAbortControllerRef.current = nextAbortController;
-
-    setState((current) => ({
-      ...current,
-      status: "running",
-    }));
-
-    try {
-      const result = await validateTex({
-        contentHash,
-        documentName,
-        latex: latexSource,
-        sourceType,
-      }, {
-        signal: nextAbortController.signal,
-      });
-
-      if (nextAbortController.signal.aborted) {
-        return;
-      }
-
-      lastValidatedHashRef.current = contentHash;
-      applyValidationResult(result);
-    } catch (error) {
-      if (nextAbortController.signal.aborted) {
-        return;
-      }
-
-      const message = error instanceof Error ? error.message : t("texValidation.validateFailed");
-      setState((current) => ({
-        ...current,
-        compileMs: null,
-        diagnostics: [],
-        lastValidatedAt: Date.now(),
-        logSummary: message,
-        status: "error",
-      }));
-
-      if (reason === "manual") {
-        toast.error(message);
-      }
-    }
-  }, [applyValidationResult, documentName, ensureTexHealth, latexSource, sourceType, t, validationEnabled]);
+  }, [latexSource, serviceEnabled, t, validationEnabled]);
 
   const runPreview = useCallback(async () => {
-    if (!validationEnabled || !latexSource.trim()) {
-      return;
-    }
-
-    const health = await ensureTexHealth();
-
-    if (!health?.ok) {
-      return;
-    }
-
-    const contentHash = await hashLatexSource(latexSource);
-    const previewStillFresh = lastPreviewExpiresAtRef.current !== null
-      && lastPreviewExpiresAtRef.current > Date.now() + 60_000;
-
-    if (lastPreviewedHashRef.current === contentHash && previewStillFresh) {
-      return;
-    }
-
-    previewAbortControllerRef.current?.abort();
-    const nextAbortController = new AbortController();
-    previewAbortControllerRef.current = nextAbortController;
-
-    try {
-      const queuedJob = await previewTex({
-        contentHash,
-        documentName,
-        latex: latexSource,
-        sourceType,
-      }, {
-        signal: nextAbortController.signal,
-      });
-
-      if (nextAbortController.signal.aborted) {
-        return;
-      }
-
-      lastPreviewedHashRef.current = contentHash;
-      const jobResult = await pollTexJob(queuedJob.jobId, nextAbortController.signal);
-
-      if (nextAbortController.signal.aborted) {
-        return;
-      }
-
-      applyTexJobResult(jobResult);
-    } catch {
-      if (nextAbortController.signal.aborted) {
-        return;
-      }
-    }
-  }, [applyTexJobResult, documentName, ensureTexHealth, latexSource, pollTexJob, sourceType, validationEnabled]);
+    void latexSource;
+  }, [latexSource]);
 
   useEffect(() => {
     if (!validationEnabled) {
@@ -380,58 +245,8 @@ export const useTexValidation = ({
   }, []);
 
   const downloadCompiledPdf = useCallback(async () => {
-    if (!validationEnabled || !latexSource.trim()) {
-      return;
-    }
-
-    const health = await ensureTexHealth();
-    if (!health?.ok) {
-      toast.error(t("texValidation.unavailable"));
-      return;
-    }
-
-    setIsExportingPdf(true);
-    exportAbortControllerRef.current?.abort();
-    const nextAbortController = new AbortController();
-    exportAbortControllerRef.current = nextAbortController;
-
-    try {
-      const queuedJob = await exportTexPdf({
-        documentName,
-        latex: latexSource,
-        sourceType,
-      }, {
-        signal: nextAbortController.signal,
-      });
-      const jobResult = await pollTexJob(queuedJob.jobId, nextAbortController.signal);
-
-      if (nextAbortController.signal.aborted) {
-        return;
-      }
-
-      applyTexJobResult(jobResult);
-
-      if (jobResult.status !== "succeeded" || !jobResult.downloadUrl) {
-        throw new Error(jobResult.error || t("texValidation.exportFailed"));
-      }
-
-      const anchor = document.createElement("a");
-      anchor.href = jobResult.downloadUrl;
-      anchor.download = `${documentName || "Untitled"}.pdf`;
-      anchor.click();
-      onPdfExported?.();
-      toast.success(t("texValidation.pdfReady"));
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-
-      const message = error instanceof Error ? error.message : t("texValidation.exportFailed");
-      toast.error(message);
-    } finally {
-      setIsExportingPdf(false);
-    }
-  }, [applyTexJobResult, documentName, ensureTexHealth, latexSource, onPdfExported, pollTexJob, sourceType, t, validationEnabled]);
+    toast.error(t("texValidation.unavailable"));
+  }, [t]);
 
   return {
     ...state,

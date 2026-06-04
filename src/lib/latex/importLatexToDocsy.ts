@@ -337,7 +337,7 @@ const SAFE_GENERIC_COMMANDS = new Set([
 ]);
 
 const shouldPreserveAsRaw = (chunk: string) => {
-  const commandMatches = chunk.match(/\\([a-zA-Z@*]+)/g) || [];
+  const commandMatches: string[] = chunk.match(/\\([a-zA-Z@*]+)/g) ?? [];
 
   return commandMatches.some((match) => {
     const commandName = match.slice(1);

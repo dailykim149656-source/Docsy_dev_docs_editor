@@ -2,8 +2,6 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import path from "node:path";
-import { Firestore } from "@google-cloud/firestore";
-import { resolveWorkspaceRepositoryBackend, stripUndefinedDeep } from "../workspace/repository";
 import type { TexDiagnostic, TexJobMode, TexJobStatus, TexSourceType } from "@/types/tex";
 
 export interface TexJobRecord {
@@ -64,7 +62,6 @@ const DEFAULT_STATE: TexJobStoreState = {
 };
 const DEFAULT_CLOUD_RUN_STATE_PATH = path.posix.join("/tmp", "docsy-tex-jobs.json");
 const DEFAULT_LOCAL_STATE_PATH = path.join(homedir(), ".docsy", "tex-jobs.json");
-const DEFAULT_FIRESTORE_COLLECTION = "texJobs";
 
 const getDefaultStatePath = () =>
   (process.env.K_SERVICE || process.env.K_REVISION || process.env.CLOUD_RUN_JOB)
@@ -235,124 +232,11 @@ class FileTexJobStore implements TexJobStore {
   }
 }
 
-class FirestoreTexJobStore implements TexJobStore {
-  constructor(
-    private readonly firestore: Firestore,
-    private readonly collectionName: string,
-  ) {}
-
-  private getCollection() {
-    return this.firestore.collection(this.collectionName);
-  }
-
-  async pruneExpired(now = Date.now()) {
-    const expired = await this.getCollection().where("ttlAt", "<=", now).get();
-    if (expired.empty) {
-      return;
-    }
-
-    const batch = this.firestore.batch();
-    for (const snapshot of expired.docs) {
-      batch.delete(snapshot.ref);
-    }
-    await batch.commit();
-  }
-
-  async createJob(input: CreateTexJobInput) {
-    const now = Date.now();
-    const record: TexJobRecord = {
-      contentHash: input.contentHash,
-      createdAt: now,
-      documentName: input.documentName,
-      jobId: randomUUID(),
-      latex: input.latex,
-      mode: input.mode,
-      sourceType: input.sourceType,
-      status: "queued",
-      ttlAt: now + getJobTtlMs(),
-      updatedAt: now,
-    };
-
-    await this.getCollection().doc(record.jobId).set(stripUndefinedDeep(record));
-    return record;
-  }
-
-  async getJob(jobId: string) {
-    const snapshot = await this.getCollection().doc(jobId).get();
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    return sanitizeTexJobRecord(snapshot.data() as Partial<TexJobRecord>);
-  }
-
-  async claimJob(jobId: string) {
-    return this.firestore.runTransaction(async (transaction) => {
-      const recordRef = this.getCollection().doc(jobId);
-      const snapshot = await transaction.get(recordRef);
-
-      if (!snapshot.exists) {
-        return null;
-      }
-
-      const record = sanitizeTexJobRecord(snapshot.data() as Partial<TexJobRecord>);
-      if (!record || record.status !== "queued") {
-        return null;
-      }
-
-      const nextRecord: TexJobRecord = {
-        ...record,
-        status: "running",
-        updatedAt: Date.now(),
-      };
-
-      transaction.set(recordRef, stripUndefinedDeep(nextRecord));
-      return nextRecord;
-    });
-  }
-
-  async completeJob(jobId: string, status: Extract<TexJobStatus, "failed" | "succeeded">, result: CompleteTexJobInput) {
-    const recordRef = this.getCollection().doc(jobId);
-    const currentRecord = await this.getJob(jobId);
-
-    if (!currentRecord) {
-      return null;
-    }
-
-    const nextRecord: TexJobRecord = {
-      ...currentRecord,
-      compileMs: result.compileMs,
-      diagnostics: result.diagnostics,
-      downloadUrl: result.downloadUrl,
-      error: result.error,
-      expiresAt: result.expiresAt,
-      logSummary: result.logSummary,
-      previewUrl: result.previewUrl,
-      status,
-      updatedAt: Date.now(),
-    };
-
-    await recordRef.set(stripUndefinedDeep(nextRecord));
-    return nextRecord;
-  }
-}
-
-const createFirestoreStore = () => {
-  const projectId = process.env.GOOGLE_CLOUD_PROJECT?.trim() || undefined;
-  const firestore = projectId
-    ? new Firestore({ ignoreUndefinedProperties: true, projectId })
-    : new Firestore({ ignoreUndefinedProperties: true });
-
-  return new FirestoreTexJobStore(firestore, DEFAULT_FIRESTORE_COLLECTION);
-};
-
 let jobStoreInstance: TexJobStore | null = null;
 
 export const getTexJobStore = (): TexJobStore => {
   if (!jobStoreInstance) {
-    jobStoreInstance = resolveWorkspaceRepositoryBackend() === "firestore"
-      ? createFirestoreStore()
-      : new FileTexJobStore();
+    jobStoreInstance = new FileTexJobStore();
   }
 
   return jobStoreInstance;

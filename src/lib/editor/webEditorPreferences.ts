@@ -30,17 +30,20 @@ export const readDocumentToolsPreference = () => {
   }
 };
 
-export const readUserProfilePreference = (): EditorUserProfile => {
+export const readUserProfilePreference = (fallbackProfile: EditorUserProfile = "beginner"): EditorUserProfile => {
   if (!canUseStorage()) {
-    return "beginner";
+    return fallbackProfile;
   }
 
   try {
-    return window.localStorage.getItem(USER_PROFILE_STORAGE_KEY) === "advanced"
-      ? "advanced"
-      : "beginner";
+    const stored = window.localStorage.getItem(USER_PROFILE_STORAGE_KEY);
+    if (stored === "advanced" || stored === "beginner") {
+      return stored;
+    }
+
+    return fallbackProfile;
   } catch {
-    return "beginner";
+    return fallbackProfile;
   }
 };
 

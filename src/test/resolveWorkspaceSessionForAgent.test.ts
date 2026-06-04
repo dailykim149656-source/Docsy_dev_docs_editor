@@ -10,7 +10,7 @@ vi.mock("../../server/modules/auth/sessionStore", () => ({
 }));
 
 vi.mock("../../server/modules/workspace/repository", () => ({
-  resolveWorkspaceRepositoryBackend: () => "firestore",
+  resolveWorkspaceRepositoryBackend: () => "file",
 }));
 
 const ORIGINAL_ENV = {
@@ -67,7 +67,7 @@ describe("resolveWorkspaceSessionForAgent", () => {
   it("degrades to workspace disconnected when session lookup throws", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     getPresentWorkspaceSessionCookieNamesMock.mockReturnValue(["__session"]);
-    getWorkspaceSessionMock.mockRejectedValue(new Error("Firestore unavailable\nretry later"));
+    getWorkspaceSessionMock.mockRejectedValue(new Error("Local workspace store unavailable\nretry later"));
 
     const { resolveWorkspaceSessionForAgent } = await import("../../server/modules/agent/resolveWorkspaceSessionForAgent");
     const result = await resolveWorkspaceSessionForAgent({
@@ -82,7 +82,7 @@ describe("resolveWorkspaceSessionForAgent", () => {
       workspaceConnected: false,
     });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining(
-      "[LiveAgent] session lookup degraded requestId=req-2 cookieNames=__session backend=firestore revision=docsy-00042 message=Firestore unavailable retry later",
+      "[LiveAgent] session lookup degraded requestId=req-2 cookieNames=__session backend=file revision=docsy-00042 message=Local workspace store unavailable retry later",
     ));
     warnSpy.mockRestore();
   });

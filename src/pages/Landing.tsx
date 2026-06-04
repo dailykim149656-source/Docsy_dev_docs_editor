@@ -5,6 +5,8 @@ import {
   ArrowRight,
   BookOpen,
   Code2,
+  Download,
+  ExternalLink,
   FileCode,
   FileJson,
   FileText,
@@ -21,14 +23,18 @@ import {
 import docslyLogo from "@/assets/docsly-logo.png";
 import docslyLogoSmall from "@/assets/docsly-logo-small.png";
 import marketingEditorSurface from "@/assets/marketing-editor-surface.png";
-import marketingGoogleWorkspaceSurface from "@/assets/marketing-google-workspace-surface.png";
 import marketingGraphSurface from "@/assets/marketing-graph-surface.png";
 import marketingPatchReviewSurface from "@/assets/marketing-patch-review-surface.png";
-import marketingQueueSurface from "@/assets/marketing-queue-surface.png";
 import { Button } from "@/components/ui/button";
 import { getGuideContent } from "@/content/guideContent";
 import { useI18n } from "@/i18n/useI18n";
 import type { Locale } from "@/i18n/types";
+import { isWebProfile } from "@/lib/appProfile";
+import {
+  configuredDesktopDownloadLinks,
+  desktopReleasesUrl,
+  getPrimaryDesktopDownloadUrl,
+} from "@/lib/release/downloadLinks";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -77,6 +83,20 @@ const Landing = () => {
   const { scrollYProgress } = useScroll();
   const heroOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 0.15], [1, 0.95]);
+  const primaryDesktopDownloadUrl = getPrimaryDesktopDownloadUrl();
+  const openPrimaryAction = () => {
+    if (!isWebProfile) {
+      navigate("/editor");
+      return;
+    }
+
+    if (primaryDesktopDownloadUrl) {
+      window.location.href = primaryDesktopDownloadUrl;
+      return;
+    }
+
+    document.getElementById("downloads")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -110,16 +130,6 @@ const Landing = () => {
       image: marketingPatchReviewSurface,
       title: t("landing.features.rstTitle"),
     },
-    {
-      description: t("landing.features.tableDesc"),
-      image: marketingQueueSurface,
-      title: t("landing.features.tableTitle"),
-    },
-    {
-      description: t("landing.features.templateDesc"),
-      image: marketingGoogleWorkspaceSurface,
-      title: t("landing.features.templateTitle"),
-    },
   ]), [t]);
   const formatGroups = useMemo(() => ([
     {
@@ -136,7 +146,6 @@ const Landing = () => {
   const advancedSurfaceChips = useMemo(() => ([
     t("landing.profiles.gated.history"),
     t("landing.profiles.gated.patchReview"),
-    t("landing.profiles.gated.ai"),
     t("landing.profiles.gated.knowledge"),
     t("landing.profiles.gated.structured"),
     t("landing.profiles.gated.documentTools"),
@@ -204,12 +213,14 @@ const Landing = () => {
           <Button className="h-8 w-8 p-0" onClick={() => setIsDark((value) => !value)} size="sm" variant="ghost">
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
-          <Button className="rounded-lg" onClick={() => navigate("/guide")} size="sm" variant="outline">
-            {t("guide.nav")}
-          </Button>
-          <Button className="gap-1.5 rounded-lg" onClick={() => navigate("/editor")} size="sm">
-            {t("landing.openEditor")}
-            <ArrowRight className="h-3.5 w-3.5" />
+          {!isWebProfile && (
+            <Button className="rounded-lg" onClick={() => navigate("/guide")} size="sm" variant="outline">
+              {t("guide.nav")}
+            </Button>
+          )}
+          <Button className="gap-1.5 rounded-lg" onClick={openPrimaryAction} size="sm">
+            {isWebProfile ? t("landing.downloadDesktop") : t("landing.openEditor")}
+            {isWebProfile ? <Download className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
           </Button>
         </div>
       </motion.nav>
@@ -278,11 +289,11 @@ const Landing = () => {
         >
           <Button
             className="gap-2 rounded-xl border-0 bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-6 text-base text-white shadow-lg transition-all hover:-translate-y-0.5 hover:from-amber-600 hover:to-orange-600 hover:shadow-xl"
-            onClick={() => navigate("/editor")}
+            onClick={openPrimaryAction}
             size="lg"
           >
-            {t("landing.hero.primaryCta")}
-            <ArrowRight className="h-4 w-4" />
+            {isWebProfile ? t("landing.downloadDesktop") : t("landing.hero.primaryCta")}
+            {isWebProfile ? <Download className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
           </Button>
           <Button
             className="rounded-xl px-8 py-6 text-base transition-all hover:-translate-y-0.5"
@@ -327,13 +338,90 @@ const Landing = () => {
                 <div className="h-3 w-3 rounded-full bg-yellow-400" />
                 <div className="h-3 w-3 rounded-full bg-green-400" />
               </div>
-              <span className="ml-2 text-xs text-muted-foreground">docsy.app/editor</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                {isWebProfile ? "Docsy desktop app" : "docsy.app/editor"}
+              </span>
             </div>
             <img alt={t("landing.previewAlt")} className="w-full" loading="lazy" src={marketingEditorSurface} />
           </motion.div>
         </div>
       </motion.section>
 
+      {isWebProfile && (
+        <section className="px-6 pb-16 sm:px-10" id="downloads">
+          <div className="mx-auto max-w-5xl">
+            <motion.div
+              className="mb-8 text-center"
+              initial="hidden"
+              variants={fadeUp}
+              viewport={{ margin: "-60px", once: true }}
+              whileInView="visible"
+            >
+              <span className="mb-4 inline-block rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                {t("landing.downloadsBadge")}
+              </span>
+              <h2 className="mb-4 text-3xl font-bold sm:text-4xl">{t("landing.downloadsTitle")}</h2>
+              <p className="mx-auto max-w-2xl text-lg text-muted-foreground">{t("landing.downloadsDescription")}</p>
+            </motion.div>
+
+            {configuredDesktopDownloadLinks.length > 0 ? (
+              <motion.div
+                className="grid gap-4 md:grid-cols-3"
+                initial="hidden"
+                variants={staggerContainer}
+                viewport={{ margin: "-60px", once: true }}
+                whileInView="visible"
+              >
+                {configuredDesktopDownloadLinks.map((link, index) => (
+                  <motion.a
+                    className="group rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-1 hover:border-border/80 hover:shadow-lg"
+                    custom={index}
+                    href={link.url ?? "#"}
+                    key={link.id}
+                    rel="noreferrer"
+                    target="_blank"
+                    variants={fadeUp}
+                  >
+                    <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500/15 to-orange-500/15 text-amber-700 dark:text-amber-400">
+                      <Download className="h-5 w-5" />
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-lg font-semibold">{link.label}</h3>
+                      <ExternalLink className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {t(`landing.downloadPlatforms.${link.id}`)}
+                    </p>
+                  </motion.a>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                className="rounded-2xl border border-dashed border-border bg-card px-6 py-8 text-center text-sm text-muted-foreground"
+                initial="hidden"
+                variants={fadeUp}
+                viewport={{ margin: "-60px", once: true }}
+                whileInView="visible"
+              >
+                {t("landing.downloadsNotConfigured")}
+              </motion.div>
+            )}
+
+            {desktopReleasesUrl && (
+              <div className="mt-5 flex justify-center">
+                <Button asChild className="rounded-xl" variant="outline">
+                  <a href={desktopReleasesUrl} rel="noreferrer" target="_blank">
+                    {t("landing.downloadsAllReleases")}
+                    <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                  </a>
+                </Button>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {!isWebProfile && (
       <section className="px-6 pb-16 sm:px-10">
         <div className="mx-auto max-w-6xl rounded-3xl border border-border bg-card p-6 shadow-sm sm:p-8">
           <motion.div
@@ -388,6 +476,7 @@ const Landing = () => {
           </motion.div>
         </div>
       </section>
+      )}
 
       <section className="px-6 pb-16 sm:px-10">
         <div className="mx-auto max-w-6xl">
@@ -476,6 +565,7 @@ const Landing = () => {
         </div>
       </section>
 
+      {!isWebProfile && (
       <section className="px-6 py-20 sm:px-10">
         <div className="mx-auto max-w-6xl">
           <motion.div
@@ -540,6 +630,7 @@ const Landing = () => {
           </motion.div>
         </div>
       </section>
+      )}
 
       <section className="px-6 py-20 sm:px-10">
         <div className="mx-auto max-w-6xl">
@@ -626,6 +717,7 @@ const Landing = () => {
         </div>
       </section>
 
+      {!isWebProfile && (
       <section className="border-y border-border bg-muted/30 px-6 py-20 sm:px-10">
         <div className="mx-auto max-w-6xl">
           <motion.div
@@ -666,7 +758,9 @@ const Landing = () => {
           </motion.div>
         </div>
       </section>
+      )}
 
+      {!isWebProfile && (
       <section className="px-6 py-20 sm:px-10">
         <div className="mx-auto max-w-6xl">
           <motion.div
@@ -707,6 +801,7 @@ const Landing = () => {
           </motion.div>
         </div>
       </section>
+      )}
 
       <section className="px-6 py-24 sm:px-10">
         <motion.div
@@ -730,27 +825,31 @@ const Landing = () => {
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button
                 className="gap-2 rounded-xl border-0 bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-6 text-base text-white shadow-lg transition-all hover:-translate-y-0.5 hover:from-amber-600 hover:to-orange-600 hover:shadow-xl"
-                onClick={() => navigate("/editor")}
+                onClick={openPrimaryAction}
                 size="lg"
               >
-                {t("landing.openEditor")}
-                <ArrowRight className="h-4 w-4" />
+                {isWebProfile ? t("landing.downloadDesktop") : t("landing.openEditor")}
+                {isWebProfile ? <Download className="h-4 w-4" /> : <ArrowRight className="h-4 w-4" />}
               </Button>
-              <Button
-                className="rounded-xl px-8 py-6 text-base"
-                onClick={() => navigate("/guide")}
-                size="lg"
-                variant="outline"
-              >
-                {t("guide.nav")}
-              </Button>
+              {!isWebProfile && (
+                <Button
+                  className="rounded-xl px-8 py-6 text-base"
+                  onClick={() => navigate("/guide")}
+                  size="lg"
+                  variant="outline"
+                >
+                  {t("guide.nav")}
+                </Button>
+              )}
             </div>
-            <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-border/70 bg-muted/20 px-6 py-5 text-left">
-              <div className="text-sm font-semibold text-foreground">{guideContent.landing.ctaTitle}</div>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                {guideContent.landing.ctaDescription}
-              </p>
-            </div>
+            {!isWebProfile && (
+              <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-border/70 bg-muted/20 px-6 py-5 text-left">
+                <div className="text-sm font-semibold text-foreground">{guideContent.landing.ctaTitle}</div>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {guideContent.landing.ctaDescription}
+                </p>
+              </div>
+            )}
           </div>
         </motion.div>
       </section>
