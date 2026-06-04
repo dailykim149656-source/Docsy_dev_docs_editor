@@ -8,13 +8,12 @@ import { BrowserRouter, HashRouter, Navigate, Routes, Route } from "react-router
 import { isDesktopShell } from "@/lib/runtime/desktopShell";
 import { isWebProfile } from "@/lib/appProfile";
 
-const isWebBuildProfile = import.meta.env.VITE_APP_PROFILE?.trim().toLowerCase() === "web";
 const Landing = lazy(() => import("@/pages/Landing"));
-const Guide = isWebBuildProfile ? null : lazy(() => import("@/pages/Guide"));
-const Index = isWebBuildProfile ? null : lazy(() => import("@/pages/Index"));
+const Guide = isWebProfile ? null : lazy(() => import("@/pages/Guide"));
+const Index = isWebProfile ? null : lazy(() => import("@/pages/Index"));
 const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
-const WorkspaceGraph = isWebBuildProfile ? null : lazy(() => import("@/pages/WorkspaceGraph"));
+const WorkspaceGraph = isWebProfile ? null : lazy(() => import("@/pages/WorkspaceGraph"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient();

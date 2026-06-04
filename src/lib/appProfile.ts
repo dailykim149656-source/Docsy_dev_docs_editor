@@ -18,7 +18,11 @@ export interface FeatureFlags {
 
 const resolveProfile = (): AppProfile => {
   const configured = import.meta.env.VITE_APP_PROFILE?.trim().toLowerCase();
-  return configured === "web" ? "web" : "desktop";
+  if (configured === "web" || configured === "desktop") {
+    return configured;
+  }
+
+  return import.meta.env.MODE === "web" ? "web" : "desktop";
 };
 
 export const appProfile = resolveProfile();
